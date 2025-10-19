@@ -1,8 +1,8 @@
 In a recent paper(1), we proposed a unified theoretical framework nPnB defined for the evaluation of graph clusterings with respect to the following two properties:
 
-  PDC : Each community is Densely Connected;
+  **PDC : Each community is Densely Connected;**
   
-  PWC : Communities are Weakly Connected to each other.
+  **PWC : Communities are Weakly Connected to each other.**
   
 In this framework, we propose BEC.2, a fast and relevant Multi-Scale Graph Clustering algorithm.
 
