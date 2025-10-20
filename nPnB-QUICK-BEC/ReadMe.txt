@@ -27,3 +27,6 @@
         This produces the folder nPnB.BEC2/nPnB-QUICK-BEC_C++/result/
         
     (2) Use the notebook notebookExample.ipynb which gives an example of use.
+
+To understand the theoretical framework, read nPnB.pdf.
+To understand how the algorithm works and its performance (computation time and clustering performance), read BEC2.pdf.
