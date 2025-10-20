@@ -4,7 +4,7 @@ In a recent paper(1), we proposed a unified theoretical framework **nPnB** defin
 
 * PWC : Communities are Weakly Connected to each other.
   
-In **nPnB** framework, I propose here **BEC.2**, a fast and relevant Multi-Scale Graph Clustering algorithm.
+I propose here **BEC.2**, a fast and relevant Multi-Scale Graph Clustering algorithm in **nPnB** framework.
 
 (1) B. GAUME , I. ACHITOUV, AND D. CHAVALARIAS, Two antagonistic objectives for one multi-scale graph clustering framework, Nature Scientific Reports, 15 (2025), p. 13368.
 https://www.nature.com/articles/s41598-025-90454-w
