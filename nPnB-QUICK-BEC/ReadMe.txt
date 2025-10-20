@@ -19,7 +19,7 @@
       Bruno Gaume (2025)
 
 ## Terms of use:
-    The project nPnB_BEC2_WU is released under a dual licence.
+    The project nPnB_BEC2 is released under a dual licence.
     To give everyone maximum freedom to make use of nPnB_BEC2_WU and derivative works, we make the code open source under the
     GNU General Public License version 3 or any later version (see LICENSE_GPLv3.txt https://www.gnu.org/licenses/gpl-3.0.en.html).
     For a non-copyleft license, please contact us.
