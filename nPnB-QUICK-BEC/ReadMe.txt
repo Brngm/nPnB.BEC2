@@ -17,6 +17,7 @@
 ## BEC2 Algorithm Reference:
       BEC.2: A fast and relevant Multi-Scale Graph Clustering algorithm in nPnB framework,
       Bruno Gaume (2025)
+      https://hal.science/hal-05053057v1
 
 ## Terms of use:
     The project nPnB_BEC2 is released under a dual licence.
