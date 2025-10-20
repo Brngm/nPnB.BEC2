@@ -2,7 +2,7 @@
 ## nPnB_BEC2_WU_C++ folder contains:
     C++ Codes for fast clustering methods in nPnB framework
 
-## Author:  
+**Author:**  
     Bruno Gaume <bruno.gaume@iscpif.fr>
     March 2025
 
