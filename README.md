@@ -43,7 +43,7 @@ but WITHOUT ANY GUARANTEE OF ANY KIND.
 
 4) INFORMATION on compiling, usage, input/output formats
    ===================================
-   see 
+   see https://github.com/Brngm/nPnB.BEC2/blob/main/nPnB/README.md
 
 5) COMMENTS & BUG REPORT
    =====================
