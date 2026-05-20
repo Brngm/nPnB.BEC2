@@ -41,49 +41,11 @@ the Free Software Foundation;
 This program is distributed in the hope that it will be useful,
 but WITHOUT ANY GUARANTEE OF ANY KIND.
 
-4) COMPILING
-   =========
-To compile the program type the command "make".
-
-5) USAGE
-   =====
-command line usage:
-
-    bec [scaleP] [input_graph_file] [output_clustering_file] [options]
-
-scaleP:
-
-    The description scale in [0,1] for clustering by partition (see The nPnB framework REFERENCE).
-
-input_graph_file:
-
-    The file in which the network is stored (see INPUT GRAPH FORMAT).
-
-output_clustering_file:
-
-    The file in which the community structure will be stored (see OUPUT CLUSTERING FORMAT).
-
-options:
-
-    -ox	set  scaleO to x in [0,1]. The stickiness scale, overlap amount for the gluant extension of the partition modules into overlapping modules. (default = "no" do not extend to save time).
-	
-    -ex	set  epsilon to x in [0,1]. The smaller epsilon, the better the quality of the output clustering, but the slower the computing. (default = 0.01).
-	
-    -rx	set  rankedEdeges to x. (default = '0', the edges are not ranked in the input graph, the program will take care of it).
-	
-    -zx	set  clustZero to x. Read the INITIAL PARTITION to amend from the x file (default = '0', the programm will take care of it: each node in its own module)
-	
-    -vx	set  verbose to x.  Display the progress. (default = '0', silent)
-
-example of command line:
-
-   ./bin/bec 0.49 ./GraphExample.txt ./clustOutput.txt -o0.1 -e0.01 -r0 -z0
-
-6) Information on input/output formats
+4) INFORMATION on compiling, usage, input/output formats
    ===================================
    see 
 
-8) COMMENTS & BUG REPORT
+5) COMMENTS & BUG REPORT
    =====================
 If you find a bug, please send a bug report to gaume.bruno@gmail.com
 including the input files and the line command that caused the bug.
