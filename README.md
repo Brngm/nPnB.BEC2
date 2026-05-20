@@ -41,9 +41,9 @@ the Free Software Foundation;
 This program is distributed in the hope that it will be useful,
 but WITHOUT ANY GUARANTEE OF ANY KIND.
 
-4) INFORMATION on compiling, usage, input/output formats
-   ===================================
-   see https://github.com/Brngm/nPnB.BEC2/blob/main/nPnB/README.md
+4) INFORMATION about compiling, usage, input/output formats
+   ========================================================
+   see ./nPnB/README.md
 
 5) COMMENTS & BUG REPORT
    =====================
