@@ -3,8 +3,8 @@
        #  Copyright (C) 2025-2026 Bruno Gaume  #
        #=======================================#
 
-1) DESCRIPTION
-   ==============
+	1) DESCRIPTION
+	
 Networks are one of the main conceptual structures for modeling complex systems, where
 nodes represent the basic lowest-level entities of the system and edges represent their
 interactions. Graph clustering algorithms are then used to identify modules: over-densely
