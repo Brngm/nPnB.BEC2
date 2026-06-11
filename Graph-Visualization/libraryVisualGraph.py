@@ -1,0 +1,4327 @@
+
+#!/usr/bin/python
+# -*- coding: utf-8 -*-
+
+"""
+    Library for managing graph visualization by assigning vertex colorings
+    according to a clustering constructed with nPnB
+    according to a description scale (module granularity).
+"""
+import codecs
+import math
+import random as rd
+import builtins
+import json
+import os
+import sys
+import time
+from matplotlib import pyplot as plt
+
+sys.path.append("nPnB/")
+import nPnBinterface as nPnB
+
+# =============================================================================
+def generate_contrasting_colors(INPUT={}): 
+    """
+    TODO
+    """
+    if INPUT:
+        n=INPUT["n"]; L1=INPUT["L1"]; L2==INPUT["L2"]; resolution=INPUT["resolution"]; seed=INPUT["seed"]
+        if seed is not None:
+            np.random.seed(seed)
+
+        # Espace RGB discret
+        space = np.linspace(0, 255, resolution)
+        candidates = np.array(np.meshgrid(space, space, space)).T.reshape(-1, 3)
+
+        # Filtrage par luminosité
+        lumin = candidates.sum(axis=1)
+        mask = (lumin > L1) & (lumin < L2)
+        candidates = candidates[mask]
+
+        if len(candidates) == 0:
+            raise ValueError("Aucune couleur ne correspond aux contraintes de luminosité données.")
+
+        # Choix initial aléatoire
+        colors = [candidates[np.random.randint(len(candidates))]]
+
+        for _ in range(1, n):
+            # Calcul de la distance minimale de chaque candidat aux couleurs choisies
+            dists = np.min(
+                np.linalg.norm(candidates[:, None, :] - np.array(colors)[None, :, :], axis=2),
+                axis=1
+            )
+            # Choisir la couleur la plus éloignée
+            next_color = candidates[np.argmax(dists)]
+            colors.append(next_color)
+
+        # Conversion en tuples d'entiers
+        L=[list(map(int, c)) for c in colors]
+    else:
+      if False:
+          L=[
+              [0, 255, 49], [0, 49, 255], [255, 0, 49], [205, 0, 255], [16, 255, 255], [255, 255, 0], [8, 148, 148], [123, 115, 246], [131, 255, 90], [255, 82, 156], [131, 24, 148], [246, 123, 0], [131, 255, 255], [222, 189, 82], [238, 123, 255], [90, 213, 0], [98, 0, 246], [41, 255, 148], [115, 172, 156], [24, 148, 255], [57, 74, 180], [205, 82, 74], [180, 197, 0], [57, 189, 82], [222, 0, 139], [172, 106, 172], [255, 255, 131], [148, 255, 172], [74, 205, 222], [172, 180, 255], [156, 49, 222], [74, 115, 115], [0, 205, 197], [197, 255, 49], [255, 156, 148], [255, 49, 230], [246, 197, 255], [172, 139, 106], [74, 65, 255], [205, 255, 238], [255, 49, 0], [172, 123, 8], [148, 189, 65], [172, 205, 131], [0, 106, 205], [65, 139, 197], [246, 189, 16], [65, 255, 65], [123, 123, 57],
+              [0, 170, 50], [170, 0, 50], [136, 0, 50], [10, 170, 50], [170, 170, 50], [5, 98, 50], [82, 76, 50], [87, 170, 50], [170, 54, 50], [87, 16, 50], [164, 82, 50], [87, 170, 50], [148, 126, 50], [158, 82, 50], [60, 142, 50], [65, 0, 50], [27, 170, 50], [76, 114, 50], [16, 98, 50], [38, 49, 50], [136, 54, 50], [120, 131, 50], [38, 126, 50], [148, 0, 50], [114, 70, 50], [170, 170, 50], [98, 170, 50], [49, 136, 50], [114, 120, 50], [104, 32, 50], [49, 76, 50], [0, 136, 50], [131, 170, 50], [170, 104, 50], [170, 32, 50], [164, 131, 50], [114, 92, 50], [49, 43, 50], [136, 170, 50], [170, 32, 50], [114, 82, 50], [98, 126, 50], [114, 136, 50], [0, 70, 50], [43, 92, 50], [164, 126, 50], [43, 170, 50], [82, 82, 50],
+              [50, 170, 32], [50, 32, 170], [50, 0, 170], [50, 170, 170], [50, 170, 0], [50, 98, 98], [50, 76, 164], [50, 170, 60], [50, 54, 104], [50, 16, 98], [50, 82, 0], [50, 170, 170], [50, 126, 54], [50, 82, 170], [50, 142, 0], [50, 0, 164], [50, 170, 98], [50, 114, 104], [50, 98, 170], [50, 49, 120], [50, 54, 49], [50, 131, 0], [50, 126, 54], [50, 0, 92], [50, 70, 114], [50, 170, 87], [50, 170, 114], [50, 136, 148], [50, 120, 170], [50, 32, 148], [50, 76, 76], [50, 136, 131], [50, 170, 32], [50, 104, 98], [50, 32, 153], [50, 131, 170], [50, 92, 70], [50, 43, 170], [50, 170, 158], [50, 82, 5], [50, 126, 43], [50, 136, 87], [50, 70, 136], [50, 92, 131], [50, 126, 10], [50, 170, 43], [50, 82, 38],
+              [0, 50, 170], [170, 50, 32], [136, 50, 170], [10, 50, 170], [170, 50, 0], [5, 50, 98], [82, 50, 164], [87, 50, 60], [170, 50, 104], [87, 50, 98], [164, 50, 0], [87, 50, 170], [148, 50, 54], [158, 50, 170], [60, 50, 0], [65, 50, 164], [27, 50, 98], [76, 50, 104], [16, 50, 170], [38, 50, 120], [136, 50, 49], [120, 50, 0], [38, 50, 54], [148, 50, 92], [114, 50, 114], [170, 50, 87], [98, 50, 114], [49, 50, 148], [114, 50, 170], [104, 50, 148], [49, 50, 76], [0, 50, 131], [131, 50, 32], [170, 50, 98], [170, 50, 153], [164, 50, 170], [114, 50, 70], [49, 50, 170], [136, 50, 158], [170, 50, 0], [114, 50, 5], [98, 50, 43], [114, 50, 87], [0, 50, 136], [43, 50, 131], [164, 50, 10], [43, 50, 43], [82, 50, 38]
+          ]
+      else: # To change the colors if needed: for example, to have more contrast between modules on clusters with few modules
+        L=[
+              [255, 0, 0], [0, 255, 0], [0, 0, 255],     [255, 255, 0], [255, 0, 255], [0, 255, 255],     [200, 100, 100], [100, 200, 100], [100, 100, 200],
+              [255, 82, 156], [131, 24, 148], [246, 123, 0], [131, 255, 255], [222, 189, 82], [238, 123, 255], [90, 213, 0], [98, 0, 246], [41, 255, 148], [115, 172, 156], [24, 148, 255], [57, 74, 180], [205, 82, 74], [180, 197, 0], [57, 189, 82], [222, 0, 139], [172, 106, 172], [255, 255, 131], [148, 255, 172], [74, 205, 222], [172, 180, 255], [156, 49, 222], [74, 115, 115], [0, 205, 197], [197, 255, 49], [255, 156, 148], [255, 49, 230], [246, 197, 255], [172, 139, 106], [74, 65, 255], [205, 255, 238], [255, 49, 0], [172, 123, 8], [148, 189, 65], [172, 205, 131], [0, 106, 205], [65, 139, 197], [246, 189, 16], [65, 255, 65], [123, 123, 57],
+              [0, 170, 50], [170, 0, 50], [136, 0, 50], [10, 170, 50], [170, 170, 50], [5, 98, 50], [82, 76, 50], [87, 170, 50], [170, 54, 50], [87, 16, 50], [164, 82, 50], [87, 170, 50], [148, 126, 50], [158, 82, 50], [60, 142, 50], [65, 0, 50], [27, 170, 50], [76, 114, 50], [16, 98, 50], [38, 49, 50], [136, 54, 50], [120, 131, 50], [38, 126, 50], [148, 0, 50], [114, 70, 50], [170, 170, 50], [98, 170, 50], [49, 136, 50], [114, 120, 50], [104, 32, 50], [49, 76, 50], [0, 136, 50], [131, 170, 50], [170, 104, 50], [170, 32, 50], [164, 131, 50], [114, 92, 50], [49, 43, 50], [136, 170, 50], [170, 32, 50], [114, 82, 50], [98, 126, 50], [114, 136, 50], [0, 70, 50], [43, 92, 50], [164, 126, 50], [43, 170, 50], [82, 82, 50],
+              [50, 170, 32], [50, 32, 170], [50, 0, 170], [50, 170, 170], [50, 170, 0], [50, 98, 98], [50, 76, 164], [50, 170, 60], [50, 54, 104], [50, 16, 98], [50, 82, 0], [50, 170, 170], [50, 126, 54], [50, 82, 170], [50, 142, 0], [50, 0, 164], [50, 170, 98], [50, 114, 104], [50, 98, 170], [50, 49, 120], [50, 54, 49], [50, 131, 0], [50, 126, 54], [50, 0, 92], [50, 70, 114], [50, 170, 87], [50, 170, 114], [50, 136, 148], [50, 120, 170], [50, 32, 148], [50, 76, 76], [50, 136, 131], [50, 170, 32], [50, 104, 98], [50, 32, 153], [50, 131, 170], [50, 92, 70], [50, 43, 170], [50, 170, 158], [50, 82, 5], [50, 126, 43], [50, 136, 87], [50, 70, 136], [50, 92, 131], [50, 126, 10], [50, 170, 43], [50, 82, 38],
+              [0, 50, 170], [170, 50, 32], [136, 50, 170], [10, 50, 170], [170, 50, 0], [5, 50, 98], [82, 50, 164], [87, 50, 60], [170, 50, 104], [87, 50, 98], [164, 50, 0], [87, 50, 170], [148, 50, 54], [158, 50, 170], [60, 50, 0], [65, 50, 164], [27, 50, 98], [76, 50, 104], [16, 50, 170], [38, 50, 120], [136, 50, 49], [120, 50, 0], [38, 50, 54], [148, 50, 92], [114, 50, 114], [170, 50, 87], [98, 50, 114], [49, 50, 148], [114, 50, 170], [104, 50, 148], [49, 50, 76], [0, 50, 131], [131, 50, 32], [170, 50, 98], [170, 50, 153], [164, 50, 170], [114, 50, 70], [49, 50, 170], [136, 50, 158], [170, 50, 0], [114, 50, 5], [98, 50, 43], [114, 50, 87], [0, 50, 136], [43, 50, 131], [164, 50, 10], [43, 50, 43], [82, 50, 38]
+          ]
+    return L
+    
+# =============================================================================
+def show_colors(colors):
+    """
+    TODO
+    """
+    n = len(colors)
+    fig, ax = plt.subplots(figsize=(n, 1))
+    for i, (r, g, b) in enumerate(colors):
+        ax.add_patch(plt.Rectangle((i, 0), 1, 1, color=(r/255, g/255, b/255)))
+        ax.text(i + 0.5, -0.2, f"{i+1}", ha='center', va='center', fontsize=10)
+    ax.set_xlim(0, n)
+    ax.set_ylim(0, 1)
+    ax.axis("off")
+    plt.tight_layout()
+    plt.show()
+
+# =============================================================================
+def add_degrees(g):
+    """
+    add_degrees(g)
+    adds the 'deg' field to the json
+    """
+    nbv=len(g["nodes"]); nbe=len(g["links"])
+    deg=[0 for _ in range(nbv)]
+    for i in range(nbe):
+        deg[g["links"][i]["source"]]=deg[g["links"][i]["source"]]+g["links"][i]["weight"]
+        deg[g["links"][i]["target"]]=deg[g["links"][i]["target"]]+g["links"][i]["weight"]
+    for i in range(nbv):
+        g["nodes"][i]["deg"]=deg[g["nodes"][i]["id"]]
+
+# @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
+# @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
+# @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
+
+
+def build_XX0(graph, CS):
+    """
+    """
+    timedeb=time.time()
+    nbv=len(graph["nodes"])
+
+    IS0=[]
+    for DX in CS:
+        sp=float("%.10f"%float(DX["input_sp"]))
+        Pp=float(DX["P_p"]); Rp=float(DX["R_p"]); F1p=float(DX["F0.5_p"]); Fpsp=float(DX["Fsp_p"]); OMEGAp=int(DX["omega_p"])
+        scoreP='"|Cp(sp=%.4f)|=%i: P=%.2f, R=%.2f, F0.50=%.2f, F%.4f=%.2f, OMEGA=%i"'%(sp,len(DX["Cp"]),Pp,Rp,F1p,sp,Fpsp, OMEGAp)
+        
+        so=float("%.10f"%float(DX["input_so"]))
+        Po=float(DX["P_o"]); Ro=float(DX["R_o"]); F1o=float(DX["F0.5_o"]); Fosp=float(DX["Fsp_o"]); OMEGAo=int(DX["omega_o"])
+        scoreO='"|Co(so=%.4f)|=%i: P=%.2f, R=%.2f, F0.50=%.2f, F%.4f=%.2f, OMEGA=%i"'%(so,len(DX["Cp"]),Po,Ro,F1o,sp,Fosp, OMEGAo)       
+
+        member=[[] for _ in range(nbv)] # Cp
+        for i in range(len(DX["Cp"])): 
+            for j in DX["Cp"][i]:
+                member[j].append(i)
+
+        for i in range(len(DX["Cp"])): # Co = Cp + extention
+            for j in DX["Ext"][i]:
+                member[j].append(i)
+
+        IS0.append({"sp":sp, "N":len(DX["Cp"]), "member":member, "P":DX["P_p"], "R":DX["R_p"], "F1":DX["P_p"], "Fs":DX["Fsp_p"], "OMEGA":DX["omega_p"],
+        "scoreP": scoreP, "scoreO": scoreO, "so":sp})
+
+    timefin=time.time()
+    return IS0
+
+  
+# =============================================================================
+def makeJsonGraphGroups(g, C):
+    """
+    """
+    nbv=len(g["nodes"]); nbe=len(g["links"])
+
+    XX=build_XX0(g, C)
+      
+    # name =================
+    CH='  {\n            "name": "%s",\n'%(g["name"])
+
+    # scales
+    CH=CH+'              "scales": [\n'
+    nbscale=len(XX)
+    for i in range(nbscale):
+
+        lastc=("," if i<(nbscale-1) else "")
+        CH=CH+'                    {"s":%s, "scoreP": %s, "scoreO": %s}%s\n'%(str(XX[i]["sp"]), XX[i]["scoreP"], XX[i]["scoreO"], lastc)
+    CH=CH+'            ],\n'
+
+    # nodes =================
+    CH=CH+'            "nodes": [\n'
+    for i in range(nbv):
+        lastc=("," if i<(nbv-1) else "")
+        name=g["nodes"][i]["label"]; name=name.encode('UTF-8'); name=name.decode('UTF-8')
+
+        member=[]
+        for ii in range(nbscale):
+          member.append(XX[ii]["member"][i])
+
+        CH=CH+'               {"id": %i, "name": "%s", "group": %s}%s\n'%(g["nodes"][i]["id"], name, member,lastc)
+    CH=CH+'            ],\n'
+
+    # links =================
+    CH=CH+'            "links": [\n'
+    for i in range(nbe):
+        lastc=("," if i<(nbe-1) else "")
+        CH=CH+'               {"id": %i, "source": %i, "target": %i, "value": %.2f}%s\n'%(i, g["links"][i]["source"],
+                                                                            g["links"][i]["target"],g["links"][i]["weight"],lastc)
+    CH=CH+'            ]\n        }\n'
+    return CH
+
+# =============================================================================
+def make3DHTML(graph, C, OutfileHTML, input_colors={}):
+  """
+  """
+  CH=""; nl="\n"
+
+  CH="""
+<!DOCTYPE html>
+<html lang="fr">
+
+<head>
+    <meta charset="UTF-8">
+
+    <!-- Local library -->
+    <script src="../VascoAsturiano-libs/three.147.min.js"></script>
+    <script src="../VascoAsturiano-libs/three-spritetext.min.js"></script>
+    <script src="../VascoAsturiano-libs/3d-force-graph.js"></script>
+
+    <!-- local KaTeX -->
+    <script src="../VascoAsturiano-libs/KaTeX/katex.min.js"></script>
+    <script src="../VascoAsturiano-libs/KaTeX/auto-render.min.js"></script>
+    <link rel="stylesheet" href="../VascoAsturiano-libs/KaTeX/katex.min.css">
+
+    <style>
+        body {
+            /* marges de mise en page générale*/
+            margin-left: 15%;
+            margin-right: 0;
+            height: 100%;
+            font-size: 12px;
+            font-family: Arial;
+            background: #f9f9f9;
+        }
+
+        #graph-wrapper {
+            position: relative;
+            width: 100%;
+            height: 100%;
+            border: none;
+            overflow: hidden;
+        }
+
+        h1 {
+            position: relative;
+            margin-top: 0px;
+            margin-bottom: 0px;
+            margin-left: 0px;
+            margin-right: 0px;
+            color: #333;
+            font-size: 24px;
+            margin-top: 0px;
+            margin-bottom: 0px;
+            margin-left: 0px;
+            margin-right: 0px;
+            padding: 0px 0px 0px 0px;
+        }
+
+        #LOGO_nPnB {
+            position: absolute;
+            top: 15px;
+            left: 105px;
+            width: 80px;
+            height: auto;
+            margin-top: 0px;
+            margin-bottom: 0px;
+            margin-left: 0px;
+            margin-right: 0px;
+            padding: 0px 0px 0px 0px;
+        }
+
+        #userguide {
+            background-color: transparent;
+            border: transparent;
+            color: white;
+            font-weight: bold;
+            font-size: 30px;
+            cursor: pointer;
+        }
+
+        #loading {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            font-size: 40px;
+            font-style: italic;
+            color: #777;
+            background-color: transparent;
+        }
+
+        /* DESCRITION SCALES ----------------------------------------------------------------------------------------------*/
+        .scale-button {
+            margin-top: 2px;
+            margin-bottom: 4px;
+            font-size: 14px;
+            font-weight: bold;
+            padding: 1px 8px;
+            margin-right: 2px;
+            background-color: #757575;
+            border: none;
+            color: white;
+            border-radius: 2px;
+            cursor: pointer;
+        }
+
+        .scale-button:hover {
+            background-color: #4F4F4F;
+            color: white;
+        }
+
+        .scale-button.active {
+            background-color: #050505;
+            color: white;
+        }
+
+        /* SCORES -----------------------------------------------------------------------------------------------------------*/
+        .updated.glow {
+            /* Gentle animation */
+            transform: scale(1.05);
+            box-shadow: 0 0 6px rgba(0, 0, 0, 0.25);
+        }
+
+        .updated.burst {
+            /* More vibrant animation */
+            transform: scale(1.18);
+            box-shadow: 0 0 12px rgba(0, 0, 0, 0.35);
+        }
+
+        /* clustering scores per partition */
+        #scoreP {
+            display: inline-block;
+            margin-top: 2px;
+            margin-bottom: 4px;
+            margin-left: 0px;
+            font-weight: bold;
+            font-size: 16px;
+            color: white;
+            background-color: #757575;
+            padding: 3px 9px;
+            border-radius: 3px;
+            transition: transform 0.3s ease, background-color 0.3s ease, box-shadow 0.3s ease;
+            cursor: pointer;
+        }
+
+        .scoreP:hover {
+            background-color: #4F4F4F;
+            color: white;
+        }
+
+        .scoreP.active {
+            background-color: #050505;
+            color: white;
+        }
+
+        /* overlapping clustering scores */
+        #scoreO {
+            display: inline-block;
+            margin-top: 2px;
+            margin-bottom: 4px;
+            margin-left: 0px;
+            font-weight: bold;
+            font-size: 16px;
+            color: white;
+            background-color: #757575;
+            padding: 3px 9px;
+            border-radius: 3px;
+            transition: transform 0.3s ease, background-color 0.3s ease, box-shadow 0.3s ease;
+            cursor: pointer;
+        }
+
+        .scoreO:hover {
+            background-color: #4F4F4F;
+            color: white;
+        }
+
+        .scoreO.active {
+            background-color: #050505;
+            color: white;
+        }
+
+        /* TOOLBAR -----------------------------------------------------------------------------------------------------------*/
+
+        #toolbar {
+            position: absolute;
+            top: 70px;
+            box-sizing: border-box;
+
+            left: 20px;
+
+            display: flex;
+            justify-content: space-between;
+
+            gap: 500px;
+
+        }
+
+        #toolbar-left {
+            left: 0;
+            display: flex;
+            align-items: center;
+            gap: 20px;
+        }
+
+        #toolbar-right {
+            left: 0;
+            display: flex;
+            align-items: center;
+            gap: 20px;
+        }
+
+        /* --------------------------------------------------------------------------------------------------------------*/
+        /* generic button +/-*/
+
+        .buttonPM {
+            display: flex;
+            align-items: flex-start;
+        }
+
+        .buttonPM button {
+            background: transparent;
+            border: transparent;
+            color: white;
+            cursor: pointer;
+            font-weight: bold;
+        }
+
+        .buttonPM .titre {
+            font-size: 29px;
+            padding: 0 2px;
+        }
+
+        .buttonPM .pm {
+            display: flex;
+            flex-direction: column;
+            margin-left: 4px;
+            margin-right: 4px;
+        }
+
+        .buttonPM .plus,
+        .buttonPM .moins {
+            font-size: 16px;
+            line-height: 16px;
+            padding: 0;
+            height: 16px;
+        }
+
+        /* EXPORT -----------------------------------------------------------------------------------------------------------------*/
+        #export {
+            background-color: transparent;
+            border: transparent;
+            color: white;
+            font-weight: bold;
+            font-size: 30px;
+            cursor: pointer;
+        }
+
+        #export-menu {
+            padding: 0px 0px;
+            position: absolute;
+            z-index: 50;
+            background: #e6e6e6;
+            color: black;
+            border: white;
+            display: none;
+        }
+
+        .export-option {
+            padding: 3px 20px;
+            cursor: pointer;
+            border: white;
+            font-size: 14px;
+            z-index: 51;
+        }
+
+        .export-option:hover {
+            padding: 3px 20px;
+            background: white;
+            color: black;
+            font-weight: bold;
+        }
+
+        /* FOCUS -----------------------------------------------------------------------------------------------------------*/
+        /* FOCUS buttons */
+        .FOCUSbutton {
+            background-color: transparent;
+            border: transparent;
+            color: white;
+            font-size: 29px;
+            font-weight: bold;
+            cursor: pointer;
+        }
+
+        .FOCUSbuttonFree {
+            padding: 10px 10px;
+            margin: 10px;
+            font-size: 14px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            background-color: #757575;
+            color: white;
+            transition: 0.3s;
+        }
+
+        .FOCUSbuttonFree:hover {
+            background: #050505;
+            color: white;
+        }
+
+        .FOCUSbuttonFree.active {
+            background-color: #050505;
+            color: white;
+        }
+
+        .FOCUSbutton:hover {
+            background-color: transparent;
+        }
+
+        /* Floating window */
+        .FOCUSpopup {
+            position: fixed;
+            display: none;
+            top: 100px;
+            left: 7px;
+            width: 14%;
+            height: 80%;
+            background: #e6e6e6;
+            border: 2px solid #757575;
+            border-radius: 8px;
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3);
+            z-index: 1000;
+            resize: both;
+            overflow: auto;
+        }
+
+        .FOCUSpopup-header {
+            background-color: #757575;
+            color: white;
+            font-weight: bold;
+            padding: 0px 0px 0px 13px;
+            cursor: move;
+            border-top-left-radius: 6px;
+            border-top-right-radius: 6px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .FOCUScloseBtn {
+            cursor: pointer;
+            font-weight: bold;
+            background: none;
+            border: none;
+            color: white;
+            font-size: 18px;
+        }
+
+        .FOCUS_GO {
+            cursor: pointer;
+            font-weight: bold;
+            background: #757575;
+            border-radius: 100px;
+            border: none;
+            color: white;
+            font-size: 18px;
+            margin-bottom: 10px;
+        }
+
+        .FOCUS_GO:hover {
+            background: #050505;
+            color: white;
+        }
+
+        .FOCUSpopup-content {
+            padding: 15px;
+            text-align: center;
+        }
+
+        /* Radio selection */
+        .FOCUSchoices {
+            font-weight: bold;
+            display: flex;
+            justify-content: space-around;
+            margin-bottom: 15px;
+        }
+
+        .FOCUSchoices input[type="radio"][value="LABEL"],
+        .FOCUSchoices input[type="radio"][value="ID"],
+        .FOCUSchoices input[type="radio"][value="FocusRadio3"],
+        .FOCUSchoices input[type="radio"][value="FocusRadio4"] {
+            accent-color: #050505;
+        }
+
+        .FOCUSchoices label {
+            margin: 0 5px;
+            cursor: pointer;
+        }
+
+        /* Text field */
+        .FOCUSinput {
+            width: 90%;
+            padding: 8px;
+            margin-bottom: 15px;
+            border: 1px solid #ccc;
+            outline: none;
+            border-radius: 4px;
+            font-size: 16px;
+        }
+
+        .FOCUSinput_COM {
+            background: #757575;
+            margin-bottom: 15px;
+            padding-top: 10px;
+            min-height: 30px;
+            font-weight: bold;
+            text-align: center;
+            font-size: 14px;
+            color: white;
+            z-index: 1000;
+        }
+
+        /* Table buttons B.i.j */
+        .FOCUStable {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 0px;
+            background-color: transparent;
+        }
+
+        .FOCUStable td {
+            padding: 0px;
+            text-align: center;
+            background-color: transparent;
+        }
+
+        .FOCUStable button {
+            padding-left: 0px;
+            padding-right: 0px;
+            width: 100px;
+            margin-bottom: 10px;
+            background-color: #878787;
+            /* 3px solid white; // #f2f2f2 #e6e6e6 #d9d9d9 #c3c3c3 #a4a4a4 #878787 #6a6a6a*/
+            color: white;
+            font-weight: bold;
+            border: transparent;
+            /* 4px solid white;*/
+        }
+
+        .FOCUStable button.active {
+            background-color: #050505;
+            border: 2px solid white;
+        }
+
+        /* Results area*/
+        .FOCUSresult {
+            border-top: 1px solid #ddd;
+            background: white;
+            padding-top: 10px;
+            min-height: 30px;
+            font-weight: bold;
+            text-align: left;
+            font-size: 14px;
+            color: #333;
+            z-index: 1000;
+        }
+
+        /* completion on the labels ========*/
+        .FOCUS-suggestions {
+            position: absolute;
+            background: white;
+            border: 1px solid #aaa;
+            max-height: 130px;
+            overflow-y: auto;
+            width: 235px;
+            display: none;
+            z-index: 9999;
+        }
+
+        .FOCUS-suggestion-item {
+            padding: 4px 8px;
+            cursor: pointer;
+        }
+
+        .FOCUS-suggestion-item:hover {
+            background: #eee;
+        }
+
+        /* PREFRENCE ------------------------------------------------------------------------------------------- */
+
+        #prefOverlay {
+            display: none;
+            position: fixed;
+            inset: 0;
+            background: transparent;
+            border: #e6e6e6;
+            z-index: 10000;
+
+            justify-content: center;
+            align-items: center;
+        }
+
+        #btnPreferences {
+            background: transparent;
+            border: none;
+            outline: none;
+            box-shadow: none;
+            cursor: pointer;
+            font-size: 24px;
+        }
+
+        #prefWindow {
+            background: #e6e6e6;
+            min-width: 500px;
+            max-width: 800px;
+
+            border-radius: 8px;
+            box-shadow: 0 0 20px rgba(0, 0, 0, 0.3);
+
+            padding: 20px;
+        }
+
+        #prefTitle {
+            font-size: 22px;
+            font-weight: bold;
+            margin-bottom: 20px;
+        }
+
+        .prefSection {
+            margin-top: 15px;
+            margin-bottom: 15px;
+        }
+
+        .prefSectionTitle {
+            font-size: 18px;
+            font-weight: bold;
+            color: #444;
+            border-bottom: 1px solid #ddd;
+            margin-bottom: 10px;
+        }
+
+        .prefRow {
+            display: flex;
+            align-items: center;
+            margin-bottom: 8px;
+        }
+
+        .prefLabel {
+            width: 180px;
+            font-family: monospace;
+        }
+
+        .prefRow input[type="number"] {
+            width: 120px;
+        }
+
+        .prefRow input[type="text"] {
+            width: 250px;
+        }
+
+        #prefButtons {
+            margin-top: 20px;
+            text-align: right;
+        }
+
+        /* --------------------------------------------------------------------------------------------------------------*/
+        #dragNodeToggle {
+            background-color: transparent;
+            border: transparent;
+            color: white;
+            font-size: 29px;
+            font-weight: bold;
+            cursor: pointer;
+        }
+
+        /* --------------------------------------------------------------------------------------------------------------*/
+        #freezeColorToggle {
+            background-color: transparent;
+            border: transparent;
+            color: white;
+            font-size: 29px;
+            font-weight: bold;
+            cursor: pointer;
+        }
+
+        /* ROTATION --------------------------------------------------------------------------------------------------------------*/
+        #rotationToggle {
+            position: absolute;
+            top: 98px;
+            left: 150px;
+            transform: translateX(-50%);
+            background-color: transparent;
+            border: transparent;
+            color: white;
+            font-size: 29px;
+            font-weight: bold;
+            cursor: pointer;
+            padding: 0px 2px;
+        }
+
+        #faster {
+            position: absolute;
+            top: 98px;
+            left: 226px;
+            background-color: transparent;
+            border: 2px solid transparent;
+            color: white;
+            font-size: 16px;
+            font-weight: bold;
+            cursor: pointer;
+            padding: 0px 0px;
+        }
+
+        #slower {
+            position: absolute;
+            top: 115px;
+            left: 226px;
+            background-color: transparent;
+            border: 2px solid transparent;
+            color: white;
+            font-size: 16px;
+            font-weight: bold;
+            cursor: pointer;
+            padding: 0px 0px;
+        }
+
+        /*  ======================================================================== */
+
+        h2 {
+            margin-left: 0px;
+            margin-top: 0px;
+            margin-bottom: 0px;
+            color: #333;
+        }
+
+
+        /* Context menu on node ===========*/
+        #menuVizFromNode {
+            position: absolute;
+            display: none;
+            background: #fff;
+            color: black;
+            font-family: Verdana, Geneva, Tahoma, sans-serif;
+            font-size: inherit;
+            border: 1px solid #ccc;
+            border-radius: 2px;
+            padding: 5px;
+            width: 300px;
+            /* largeur totale */
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
+            z-index: 20;
+            cursor: move;
+        }
+
+        #menuVizFromNode h2 {
+            margin: 2px 2px 2px;
+            border-radius: 2px;
+            padding: 5px;
+            font-size: 12px;
+            font-family: Verdana, Geneva, Tahoma, sans-serif;
+            text-align: left;
+            background: #616060;
+            /* #757575;  color:#F54927 */
+            color: #fff;
+        }
+
+        .action-blocVizFromNodekVizFromNode {
+            margin-bottom: 2px;
+            font-family: Verdana, Geneva, Tahoma, sans-serif;
+        }
+
+        .action-blocVizFromNode h3 {
+            margin: 0 0 2px 0;
+            font-size: 10px;
+            font-weight: bold;
+            font-family: Verdana, Geneva, Tahoma, sans-serif;
+            text-decoration: underline;
+        }
+
+        .action-blocVizFromNode h3 {
+            margin: 0 0 2px 0;
+            font-size: 10px;
+            font-family: Verdana, Geneva, Tahoma, sans-serif;
+            text-decoration: underline;
+        }
+
+        /* Button line + aligned descriptions + latex*/
+        .btn-desc-rowVizFromNode {
+            display: flex;
+            gap: 8px;
+            font-family: Verdana, Geneva, Tahoma, sans-serif;
+            /* horizontal space */
+        }
+
+        .btn-desc-itemVizFromNode {
+            display: flex;
+            flex-direction: column;
+            max-width: 90px;
+            font-family: Verdana, Geneva, Tahoma, sans-serif;
+            /* by default it's wider */
+            flex: 1;
+        }
+
+        .btn-desc-itemVizFromNode .ctx-btnVizFromNode {
+            width: 50%;
+            padding: 1px 1px;
+            color: #eee;
+            background: #757575;
+            /* #616060;  #757575;  color:#F54927 */
+            border-radius: 2px;
+            cursor: pointer;
+            text-align: center;
+            font-size: 12px;
+            font-weight: bold;
+            font-family: Verdana, Geneva, Tahoma, sans-serif;
+            box-sizing: border-box;
+        }
+
+        .btn-desc-itemVizFromNode .ctx-btnVizFromNode:hover {
+            background: #4F4F4F;
+            color: white;
+        }
+
+        .btn-desc-itemVizFromNode .desc-textVizFromNode {
+            font-size: 11px;
+            font-family: Verdana, Geneva, Tahoma, sans-serif;
+            color: #444;
+            text-align: left;
+            margin-top: 2px;
+            margin-left: 0px;
+        }
+
+        /*Context menu on background ===================================================================*/
+        #menuLDCON {
+            position: absolute;
+            display: none;
+            background: #fff;
+            color: black;
+            font-family: Verdana, Geneva, Tahoma, sans-serif;
+            border: 1px solid #ccc;
+            border-radius: 2px;
+            padding: 15px;
+            width: 350px;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
+            z-index: 20;
+            cursor: move;
+        }
+
+        #menuLDCON {
+            font-family: Verdana, Geneva, Tahoma, sans-serif;
+            font-size: inherit;
+        }
+
+        #menuLDCON h2 {
+            margin: 2px 2px 2px;
+            border-radius: 2px;
+            padding: 5px;
+            font-size: 12px;
+            font-family: Verdana, Geneva, Tahoma, sans-serif;
+            text-align: left;
+            background: #616060;
+            /* #757575;  color:#F54927 */
+            color: #fff;
+        }
+
+        .action-blocLDCONkLDCON {
+            margin-bottom: 5px;
+            font-family: Verdana, Geneva, Tahoma, sans-serif;
+        }
+
+        .action-blocLDCON h3 {
+            margin: 0 0 2px 0;
+            font-size: 10px;
+            font-weight: bold;
+            font-family: Verdana, Geneva, Tahoma, sans-serif;
+            text-decoration: underline;
+        }
+
+        /* Line of buttons + descriptions aligned */
+        #menuLDCON {
+            position: absolute;
+            display: none;
+            background: #fff;
+            color: black;
+            font-family: Verdana, Geneva, Tahoma, sans-serif;
+            border: 1px solid #ccc;
+            border-radius: 2px;
+            padding: 5px;
+            width: 350px;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
+            z-index: 20;
+        }
+
+        .action-blocLDCONkLDCON {
+            margin-bottom: 2px;
+        }
+
+        .action-blocLDCON h3 {
+            margin: 0 0 2px 0;
+            font-size: 10px;
+            font-family: Verdana, Geneva, Tahoma, sans-serif;
+            text-decoration: underline;
+        }
+
+        /* Button line + aligned descriptions + latex*/
+        .btn-desc-rowLDCON {
+            display: flex;
+            gap: 8px;
+            font-family: Verdana, Geneva, Tahoma, sans-serif;
+        }
+
+        .btn-desc-itemLDCON {
+            display: flex;
+            flex-direction: column;
+            max-width: 90px;
+            font-family: Verdana, Geneva, Tahoma, sans-serif;
+            /* by default it's wider */
+            flex: 1;
+        }
+
+        .btn-desc-itemLDCON .ctx-btnLDCON {
+            width: 50%;
+            padding: 1px 1px;
+            color: #eee;
+            background: #757575;
+            /* #616060;  #757575;  color:#F54927 */
+            border-radius: 2px;
+            cursor: pointer;
+            text-align: center;
+            font-size: 12px;
+            font-weight: bold;
+            font-family: Verdana, Geneva, Tahoma, sans-serif;
+            box-sizing: border-box;
+        }
+
+        .btn-desc-itemLDCON .ctx-btnLDCON:hover {
+            background: #4F4F4F;
+            color: white;
+        }
+
+        .btn-desc-itemLDCON .desc-textLDCON {
+            font-size: 11px;
+            font-family: Verdana, Geneva, Tahoma, sans-serif;
+            color: #444;
+            text-align: left;
+            margin-top: 2px;
+            margin-left: 0px;
+        }
+
+        /* --------------------------------------------------------------------------------------------------- */
+        /* objects attached to a node*/
+        #menuAttachedObj {
+            position: absolute;
+            display: none;
+
+            background: white;
+            color: black;
+
+            width: 300px;
+
+            border: 1px solid #ccc;
+            border-radius: 2px;
+
+            padding: 10px;
+
+            font-family: Verdana, Geneva, Tahoma, sans-serif;
+            font-size: 12px;
+
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
+
+            z-index: 30;
+        }
+    </style>
+</head>
+
+<body>
+    <!-- page structure ---------------------------------------------------------------------------- -->
+    <a href="https://www.nature.com/articles/s41598-025-90454-w" target="_blank">
+        <img id="LOGO_nPnB" src="./LOGO_nPnB_R.png" alt="LOGO">
+    </a>
+
+    <h1 id="NamePedig"></h1>
+
+    <div id="graph-wrapper">
+
+        <div>
+            <h1 id="TScales" style="display:inline-block; margin-left:0px; padding: 0px; font-size: 14px"></h1>
+            <div id="Scale-buttonS" style="display:inline-block; margin-left:0px;"></div>
+        </div>
+
+        <div>
+            <h1 id="TScores" style="display:inline-block; margin-left:0px; padding: 0px; font-size: 14px"></h1>
+            <h1 id="scoreP"></h1>
+            <h2 id="scoreO"></h2>
+            <h1 id="WWW" style="display:inline-block; margin-left:0px; padding: 0px; font-size: 20px"></h1>
+        </div>
+        <div id="Graph3D"></div>
+
+        <div id="toolbar">
+            <div id="toolbar-left">
+
+                <button class="FOCUSbutton FOCUSopenBtn">&#x1F50D</button>
+
+                <button id="btnPreferences">⚙️</button>
+
+                <button id="dragNodeToggle">✣</button>
+
+                <div class="buttonPM" id="rotationControl"> <!--  /* $+*/ -->
+                    <button class="titre">↻</button>
+
+                    <div class="pm">
+                        <button class="plus">+</button>
+                        <button class="moins">-</button>
+                    </div>
+                </div>
+
+                <div class="buttonPM" id="awareControl"> <!--  /* $+*/ -->
+                    <button class="titre">Smart</button>
+
+                    <div class="pm">
+                        <button class="plus">+</button>
+                        <button class="moins">-</button>
+                    </div>
+                </div>
+
+                <button id="freezeColorToggle">FrozCol</button>
+
+                <!-- 
+                <div class="buttonPM" id="LabelControl">
+                    <button class="titre">SizLab</button>
+                </div>
+                -->
+            </div> <!-- <div id="toolbar-left"> -->
+
+            <div id="toolbar-right">
+                <button id="userguide">USER-GUIDE</button>
+                <div>
+                    <button id="export">EXPORT</button> <!-- /* $+*/ -->
+
+                    <div id="export-menu">
+                        <div class="export-option" data-format="jpg">JPG</div>
+                        <div class="export-option" data-format="png2">PNG 2×</div>
+                        <div class="export-option" data-format="png4">PNG 4×</div>
+                    </div>
+                </div>
+            </div> <!-- <div id="toolbar-right"> -->
+        </div> <!-- <div id="toolbar"> -->
+
+        <div id="prefOverlay">
+            <div id="prefWindow">
+
+                <div id="prefTitle">
+                    PREFERENCES
+                </div>
+
+                <div id="prefContent"></div>
+
+                <div id="prefButtons">
+                    <button id="prefApply">APPLY</button>
+                    <button id="prefReset">RESET</button>
+                </div>
+
+            </div>
+        </div>
+
+        <div id="menuVizFromNode"></div>
+        <div id="menuLDCON"></div>
+        <div id="menuAttachedObj"></div>
+        <div id="loading">Loading the graph...</div>
+    </div> <!-- <div id="graph-wrapper">-->
+    <!------------------------------------------------------------------------------------------------>
+  """+nl
+
+  CH=CH+"""<!-- $$$$ personal data -->"""+nl
+  CH=CH+"""    <script type="application/json" id="graph-json">\n       %s    </script>\n"""%(makeJsonGraphGroups(graph, C))
+  CH=CH+"""    <script> // basic colors\n    const colorRGB = %s;\n    </script>""" %(generate_contrasting_colors(input_colors))+nl  
+  CH=CH+"""<!-- $$$$ personal data -->"""+nl
+
+  CH=CH+"""
+    <script>
+        /*
+            ================================================================================
+            MIAP - JavaScript reorganisé pour maintenance
+            Généré automatiquement à partir du fichier fourni.
+            Objectif: organisation seulement, sans modification fonctionnelle volontaire.
+            ================================================================================
+        */
+
+        //#region CONFIGURATION / DATA
+
+        // ---- bloc script original #1 ----
+        // ---- bloc script original #2 ----
+        const Gjson = JSON.parse(document.getElementById("graph-json").textContent);
+        const myTitle0 = Gjson.name + ": |V|=" + Gjson.nodes.length + ", |E|=" + Gjson.links.length;
+        const scales = Gjson.scales || [];
+        const maxNumScale = Math.max(...Gjson.nodes.map(n => n.group.length));
+        const numScaleButton = Math.min(scales.length, maxNumScale);
+
+
+        //#endregion CONFIGURATION / DATA
+
+        //#region ETAT GLOBAL STATE
+
+        // ---- bloc script original #3 ----
+        let STATE = {};
+        // preferences
+        STATE.PREF = {}
+
+        STATE.PREF.BACKGROUND = {}
+        STATE.PREF.BACKGROUND.backgroundColor = "#e6e6e6" // #e6e6e6 #f2f2f2 #d9d9d9 #c3c3c3 #a4a4a4 #878787 #6a6a6a
+
+        STATE.PREF.NODE = {};
+        STATE.PREF.NODE.ColorCoef = 0.3;
+        STATE.PREF.NODE.ColorTrans = true;
+        STATE.PREF.NODE.ColorOpac = 0.9;
+        STATE.PREF.NODE.Radius = 2;
+        STATE.PREF.NODE.RadiusCoef = 0.7;
+        STATE.PREF.NODE.SphereWidth = 10;
+        STATE.PREF.NODE.SphereHeight = 10;
+
+        STATE.PREF.LABEL = {};
+        STATE.PREF.LABEL.sizeHover = 25;
+        STATE.PREF.LABEL.sizeFixed = 16;
+
+        STATE.PREF.LINK = {};
+        STATE.PREF.LINK.ColorCoef = 1.5;
+        STATE.PREF.LINK.ColorTrans = 0.9;
+        STATE.PREF.LINK.Width = 1.5;
+
+        // to be updated(system status)
+        STATE.s = 0
+        STATE.p = true;
+
+        STATE.lback = [];
+        STATE.lback.push({ T: "INIT", ARO: "", ID: "", s: "", a: "", b: "" })
+
+        STATE.NODE_DRAG = false;
+
+        STATE.CAMERA0 = {}
+        STATE.CAMERA0.POSITION = {}
+        STATE.CAMERA0.POSITION.x = 0;
+        STATE.CAMERA0.POSITION.y = 0;
+        STATE.CAMERA0.POSITION.z = 0;
+
+        STATE.CAMERA0.LOOKAT = {};
+        STATE.CAMERA0.LOOKAT.x = 0;
+        STATE.CAMERA0.LOOKAT.y = 0;
+        STATE.CAMERA0.LOOKAT.z = 0;
+
+        STATE.CAMERA = {}
+        STATE.CAMERA.POSITION = {}
+        STATE.CAMERA.POSITION.x = 0;
+        STATE.CAMERA.POSITION.y = 0;
+        STATE.CAMERA.POSITION.z = 0;
+
+        STATE.CAMERA.LOOKAT = {};
+        STATE.CAMERA.LOOKAT.x = 0;
+        STATE.CAMERA.LOOKAT.y = 0;
+        STATE.CAMERA.LOOKAT.z = 0;
+
+        STATE.PLOT = {};
+        STATE.PLOT.nbVisibleNodes = Gjson.nodes.length;
+        STATE.PLOT.stable = false;
+        STATE.PLOT.coef_weak_strength = 10; // by default
+        STATE.PLOT.aware = false;
+
+        STATE.FOC = {};
+        STATE.FOC.active = false;
+
+        STATE.R = {};
+        STATE.R.active = false;
+        STATE.R.Bary = false;
+        STATE.R.angle = 0;
+        STATE.R.ms = 0;
+        STATE.R.speed = 2000;
+        STATE.R.interval = 10;
+        STATE.R.timer = null; // timer de rotation, créé seulement quand la rotation est active
+
+        const DEFAULT_PREF = structuredClone(STATE.PREF)
+
+        // ---- bloc script original #4 ----
+        Gjson.nodes.forEach(node => {
+            node.visible = true;
+            node.deg = 0;
+            node.val = 0;
+            node.neighbors = [];
+            node.links = [];
+            node.LabVis = false;
+            node.BigLab = false;
+
+            //label
+            let sprite = new SpriteText(node.name);
+
+            // clear the depth buffer before drawing the label
+            sprite.onBeforeRender = (renderer) => renderer.clearDepth();
+
+            // Prevents the sprite from being hidden by links/nodes
+            sprite.material.depthWrite = false;
+            sprite.material.depthTest = false;
+            sprite.material.transparent = true;
+            sprite.material.needsUpdate = true;
+
+            // Make sure it is drawn last
+            sprite.renderOrder = 9999;
+
+            sprite.color = "black" // myColorNode(node.id);
+
+            if (node.BigLab) {
+                sprite.textHeight = 2 * STATE.PREF.LABEL.sizeFixed;
+            }
+            else {
+                sprite.textHeight = STATE.PREF.LABEL.sizeFixed;
+            }
+
+            sprite.textAlign = 'left';
+            sprite.center.set(0, 0);
+            sprite.position.x = 5;
+
+            // !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+            /* The picking engine is managed by the library 3d-force-graph
+            The problem is that the 3d-force-graph picking engine considers the entire object associated with the node,
+            including the label area when it's rendered.
+            As a result:
+                the label is hidden;
+                but its "interactive" area still exists;
+                hovering over it triggers the tooltip;
+                the user has the impression that the label appears even though the mouse isn't over the node (but actually next to the node, on its label)).
+                The user doesn't understand what's happening.
+                To correct this issue, add the following line: */
+            sprite.raycast = () => { };
+            // !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+
+            node.labelSprite = sprite;
+        });
+
+        Gjson.links.forEach(link => {
+            link.visible = true;
+            const a = Gjson.nodes[link.source];
+            const b = Gjson.nodes[link.target];
+
+            a.deg = a.deg + 1;
+            b.deg = b.deg + 1;
+
+            a.val = a.val + STATE.PREF.NODE.Radius;
+            b.val = b.val + STATE.PREF.NODE.Radius;
+
+            !a.neighbors && (a.neighbors = []);
+            !b.neighbors && (b.neighbors = []);
+            a.neighbors.push(b.id);
+            b.neighbors.push(a.id);
+
+            !a.links && (a.links = []);
+            !b.links && (b.links = []);
+            a.links.push(link.id);
+            b.links.push(link.id);
+        });
+
+
+        //#endregion ETAT GLOBAL STATE
+
+        //#region REFERENCES DOM
+
+        // ---- bloc script original #5 ----
+        TScales.textContent = 'Description Scales: ';
+        // button scale
+        const scaleButtonS = document.getElementById("Scale-buttonS");
+
+        // ---- bloc script original #6 ----
+        TScores.textContent = 'Scores: ';
+        const scoreDisplayP = document.getElementById("scoreP");
+        const scoreDisplayO = document.getElementById("scoreO");
+
+        // ---- bloc script original #7 ----
+        const working = document.getElementById('loading');
+        const myTitle = Gjson.name + ": |V|=" + Gjson.nodes.length + ", |E|=" + Gjson.links.length;
+        working.style.display = 'none';
+
+
+        //#endregion REFERENCES DOM
+
+        //#region CONFIGURATION / DATA
+
+        // ---- bloc script original #8 ----
+        const Propaganda = "«Propaganda is to a democracy what the bludgeon is to a totalitarian state.»" +
+            "Noam Chomsky (2002), in «Media Control: The Spectacular Achievements of Propaganda»"
+
+
+        //#endregion CONFIGURATION / DATA
+
+        //#region FOCUS / DRAGGABLES
+
+        // ---- bloc script original #9 ----
+        let lastCLick_ground_L_00 = 0;
+        let lastCLick_ground_L_10 = 0;
+        let lastCLick_ground_L_01 = 0;
+        let FOCUS_cross = false;
+        let ScaleFrozenColor = -1;
+        let isDragging = false;
+        let isDraggingMenu = false;
+        let offsetX = 0, offsetY = 0;
+
+
+        //#endregion FOCUS / DRAGGABLES
+
+        //#region EVENEMENTS - FOCUS
+
+        // ---- bloc script original #10 ----
+        const FOCUSbtn = document.querySelector('.FOCUSopenBtn');
+        FOCUSbtn.addEventListener("click", event => {
+            if (STATE.FOC.active) {
+                CLICK_FOCUScloseBtn()
+            }
+            else {
+                CLICK_FOCUSbtn()
+            }
+        });
+
+
+        //#endregion EVENEMENTS - FOCUS
+
+        //#region EVENEMENTS - TOOLBAR
+
+        // ---- bloc script original #11 ----
+        const freezeColorToggle = document.getElementById("freezeColorToggle");
+        document.getElementById('freezeColorToggle').addEventListener('click', event => {
+
+            if (ScaleFrozenColor > -1) {
+                ScaleFrozenColor = -1
+                document.getElementById("freezeColorToggle").style.border = "transparent";
+                freezeColorToggle.textContent = "FrozCol";
+            }
+            else {
+                ScaleFrozenColor = STATE.s
+                document.getElementById("freezeColorToggle").style.border = "2px solid white";
+                freezeColorToggle.textContent = "FrozCol " + scales[ScaleFrozenColor]['s'];
+            }
+            UPDATE_Visibility()
+        });
+
+        // ---- bloc script original #12 ----
+        const dragNodeToggle = document.getElementById("dragNodeToggle");
+
+        dragNodeToggle.addEventListener("click", () => {
+            ToggleNodeDrag();
+        });
+
+        //#endregion EVENEMENTS - TOOLBAR
+
+        //#region ETAT GLOBAL STATE
+
+        // ---- bloc script original #13 ----
+        document.getElementById("btnPreferences").addEventListener("click", () => {
+            choose_your_preferences(STATE.PREF);
+        });
+
+        document.getElementById("prefApply").addEventListener("click", () => {
+            savePreferences(STATE.PREF);
+            document.getElementById("prefOverlay").style.display = "none";
+            // console.log("NEW PREF =", STATE.PREF);
+            APPLY_PREF()
+        });
+
+        document.getElementById("prefReset").addEventListener("click", () => {
+            resetPreferences();
+        });
+
+
+        //#endregion ETAT GLOBAL STATE
+
+        //#region EVENEMENTS - TOOLBAR
+
+        // ---- bloc script original #14 ----
+        const userguide = document.getElementById('userguide');
+        userguide.onclick = () => {
+            const lien = document.createElement("a");
+            lien.href = "../userGuide.pdf";
+            lien.target = "_blank";
+            lien.click();
+        };
+
+
+        //#endregion EVENEMENTS - TOOLBAR
+
+        //#region EVENEMENTS - EXPORT
+
+        // ---- bloc script original #15 ----
+        const exportBtn = document.getElementById('export');
+        const exportMenu = document.getElementById('export-menu');
+
+        exportBtn.onclick = () => {
+            exportMenu.style.display = exportMenu.style.display === 'block' ? 'none' : 'block';
+        };
+
+        document.querySelectorAll('.export-option').forEach(option => {
+            option.addEventListener('click', event => {
+
+                const format = option.dataset.format;
+                const canvas = Graph.renderer().domElement;
+                const link = document.createElement('a');
+
+                const renderer = Graph.renderer();
+                let scale = 1;
+
+                if (format === 'png2') scale = 2;
+                else if (format === 'png4') scale = 4;
+
+                const originalWidth = renderer.domElement.width;
+                const originalHeight = renderer.domElement.height;
+
+                // temporarily resize
+                renderer.setSize(originalWidth * scale, originalHeight * scale, false);
+                renderer.render(Graph.scene(), Graph.camera());
+
+                // save the original color
+                const originalBg = Graph.backgroundColor();
+
+                // temporarily set the background to white
+                Graph.backgroundColor('#ffffff');
+
+                // force the rendering with the correct clear
+                renderer.setClearColor(0xffffff, 1); // white color, opacity 1
+                renderer.render(Graph.scene(), Graph.camera());
+
+                // capture according to the format
+                if (format === 'jpg') {
+                    link.href = renderer.domElement.toDataURL('image/jpeg', 0.92);
+                } else {
+                    link.href = renderer.domElement.toDataURL('image/png');
+                }
+
+                // return to normal
+                Graph.backgroundColor(originalBg);
+                renderer.setClearColor(originalBg, 1);
+                renderer.render(Graph.scene(), Graph.camera());
+                renderer.setSize(originalWidth, originalHeight, false);
+                renderer.render(Graph.scene(), Graph.camera());
+
+                const namesave = `viz3D.nPnB.${Gjson.name}.${STATE.p ? 'Cp' : 'Co'}.${scales[STATE.s]["s"]}`;
+
+                link.download = `${namesave}.${format.startsWith('jpg') ? 'jpg' : 'png'}`;
+                link.click();
+                exportMenu.style.display = 'none';
+            });
+        });
+
+
+        //#endregion EVENEMENTS - EXPORT
+
+        //#region INITIALISATION
+
+        // ---- bloc script original #16 ----
+        let Graph;
+        window.addEventListener("load", () => {
+            initGraph();
+            createScaleButtons();
+            initScoreButtons();
+            initRotationControl();
+            initAwareControl();
+            initDraggables();
+            initPlot();
+        });
+
+        // ---- bloc script original #17 ----
+        function initGraph() {
+
+            const WinnerWidth = window.innerWidth;
+
+            window.ForceGraph3DInstance =
+                new ForceGraph3D(document.getElementById("Graph3D"));
+
+            Graph = window.ForceGraph3DInstance;
+
+            Graph
+                .backgroundColor("#000000")
+                .width(WinnerWidth * 0.5 * 1.618)
+                .height(WinnerWidth * 0.5)
+
+                .graphData(Gjson)
+
+                .nodeThreeObjectExtend(false)
+
+                .nodeLabel(node =>
+                    `<span style="font-size:${STATE.PREF.LABEL.sizeHover}px;font-weight:bold">
+                ${node.id}:${node.name}
+                (deg=${node.deg},
+                Cp=${Gjson.nodes[node.id].group[STATE.s][0]})
+            </span>`
+                )
+
+                .onEngineStop(onGraphEngineStop)
+
+                .nodeResolution(8)
+                .nodeRelSize(1)
+                .nodeOpacity(0.9)
+                .nodeVisibility(node => node.visible)
+
+                .enableNodeDrag(false)
+
+                .linkVisibility(link => link.visible)
+
+                .linkWidth(link => STATE.PREF.LINK.Width)
+
+                .showNavInfo(false)
+
+                .onNodeClick((node, event) =>
+                    CLickKEY_node_L(event, node))
+
+                .onNodeRightClick((node, event) =>
+                    CLickKEY_node_R(event, node))
+
+                .onBackgroundClick(event =>
+                    CLickKEY_ground_L(event))
+
+                .onBackgroundRightClick(event =>
+                    CLickKEY_ground_R(event));
+        }
+
+
+        //#endregion INITIALISATION
+
+        //#region GRAPH ENGINE
+
+        // ---- bloc script original #18 ----
+        function onGraphEngineStop() {
+
+            if (!freezeAfterSimulation) {
+                return;
+            }
+
+            freezeAfterSimulation = false;
+
+            Graph.graphData().nodes.forEach(n => {
+                n.fx = n.x;
+                n.fy = n.y;
+                n.fz = n.z;
+            });
+
+            Graph.onEngineStop(() => { });
+
+            STATE.PLOT.stable = true;
+        }
+
+
+        //#endregion GRAPH ENGINE
+
+        //#region  USER INTERFACE - SCALES
+
+        // ---- bloc script original #19 ----
+        function createScaleButtons() {
+
+            for (let i = 0; i < numScaleButton; i++) {
+
+                const btn = document.createElement("button");
+
+                btn.textContent = scales[i]["s"];
+
+                btn.classList.add("scale-button");
+
+                if (i === STATE.s) {
+                    btn.classList.add("active");
+                    AnimateScore("s");
+                }
+
+                btn.addEventListener("click", () => {
+                    CLICK_scaleButtonS_btn(i);
+                });
+
+                scaleButtonS.appendChild(btn);
+            }
+
+            refreshScaleButtons();
+        }
+
+        function refreshScaleButtons() {
+
+            document
+                .querySelectorAll(".scale-button")
+                .forEach(btn => {
+                    btn.classList.toggle(
+                        "active",
+                        btn.textContent === String(scales[STATE.s]["s"])
+                    );
+                });
+        }
+
+        //#endregion  USER INTERFACE - SCALES
+
+        //#region  USER INTERFACE - SCORES
+
+        // ---- bloc script original #20 ----
+        function initScoreButtons() {
+
+            scoreDisplayP.addEventListener(
+                "click",
+                CLICK_scoreDisplayP
+            );
+
+            scoreDisplayO.addEventListener(
+                "click",
+                CLICK_scoreDisplayO
+            );
+        }
+
+
+        //#endregion  USER INTERFACE - SCORES
+
+        //#region  USER INTERFACE - TOOLBAR CONTROLS
+
+        // ---- bloc script original #21 ----
+        function initRotationControl() {
+
+            plugButtonPM("rotationControl", {
+
+                toggle(bloc, event) {
+
+                    if (STATE.R.active) {
+
+                        rotationControl.style.border =
+                            "transparent";
+                        STATE.R.speed = 2000;
+                        SetRotationActive(false);
+                        return;
+                    }
+
+                    rotationControl.style.border =
+                        "2px solid white";
+
+                    const CamPos =
+                        Graph.cameraPosition();
+
+                    let dx =
+                        CamPos.x - STATE.CAMERA.LOOKAT.x;
+
+                    let dy =
+                        CamPos.y - STATE.CAMERA.LOOKAT.y;
+
+                    let dz =
+                        CamPos.z - STATE.CAMERA.LOOKAT.z;
+
+                    STATE.R.dist =
+                        Math.sqrt(dx * dx + dy * dy + dz * dz);
+
+                    dx /= STATE.R.dist;
+                    dy /= STATE.R.dist;
+                    dz /= STATE.R.dist;
+
+                    STATE.R.angle = 0;
+                    STATE.R.Bary = false;
+                    SetRotationActive(true);
+                },
+
+                plus() {
+
+                    if (STATE.R.active) {
+                        STATE.R.speed /= 1.2;
+                    }
+                },
+
+                moins() {
+
+                    if (STATE.R.active) {
+                        STATE.R.speed *= 1.2;
+                    }
+                }
+            });
+        }
+
+        // ---- bloc script original #22 ----
+        function initAwareControl() {
+
+            plugButtonPM("awareControl", {
+
+                toggle() {
+                    ToggleAware();
+                },
+
+                plus() {
+
+                    if (
+                        STATE.PLOT.stable &&
+                        STATE.PLOT.aware
+                    ) {
+                        STATE.PLOT.coef_weak_strength++;
+                        PLOT_Vastur();
+                    }
+                },
+
+                moins() {
+
+                    if (
+                        STATE.PLOT.stable &&
+                        STATE.PLOT.aware
+                    ) {
+                        STATE.PLOT.coef_weak_strength = Math.max(STATE.PLOT.coef_weak_strength - 1, 1);
+                        PLOT_Vastur();
+                    }
+                }
+            });
+        }
+
+        function SetAwareActive(active) {
+            if (!STATE.PLOT.stable) {
+                return;
+            }
+            STATE.PLOT.aware = active;
+            awareControl.style.border =
+                active ? "2px solid white" : "transparent";
+
+            PLOT_Vastur();
+        }
+
+        function ToggleAware() {
+            SetAwareActive(!STATE.PLOT.aware);
+        }
+
+
+
+
+        //#endregion  USER INTERFACE - TOOLBAR CONTROLS
+
+        //#region REFERENCES DOM
+
+        // ---- bloc script original #23 ----
+        function initDraggables() {
+
+            makeDraggable(
+                document.getElementById(
+                    "menuAttachedObj"
+                ),
+                {
+                    headerId: "AO_header"
+                }
+            );
+
+            makeDraggable(
+                document.getElementById(
+                    "menuVizFromNode"
+                ),
+                {}
+            );
+
+            makeDraggable(
+                document.getElementById(
+                    "menuLDCON"
+                ),
+                {}
+            );
+        }
+
+
+        //#endregion REFERENCES DOM
+
+        //#region PLOT
+
+        // ---- bloc script original #24 ----
+        function initPlot() {
+            PLOT_Vastur_Geometry_Unaware([]);
+            // PLOT_Vastur();
+        }
+
+
+        //#endregion PLOT
+
+        //#region EVENEMENTS - FOCUS
+
+        // ---- bloc script original #25 ----
+        document.addEventListener("click", (e) => {
+            const menuAttachedObj = document.getElementById("menuAttachedObj");
+            const menuVizFromNode = document.getElementById("menuVizFromNode");
+            const menuLDCON = document.getElementById("menuLDCON");
+
+            if (
+                menuAttachedObj.style.display === "block" &&
+                !menuAttachedObj.contains(e.target)
+            ) {
+                document.getElementById("menuAttachedObj").style.display = "none";
+            }
+
+            if (!menuVizFromNode.contains(e.target)) {
+                menuVizFromNode.style.display = "none";
+            }
+
+            if (!menuLDCON.contains(e.target)) {
+                menuLDCON.style.display = "none";
+            }
+            if (
+                !isDraggingMenu &&
+                !menuLDCON.contains(e.target)
+            ) {
+                menuLDCON.style.display = "none";
+            }
+
+
+        });
+
+        //#endregion EVENEMENTS - FOCUS
+
+        //#region USER INTERFACE - CONTROLS
+
+        // ---- bloc script original #26 ----
+        function RotateCameraStep() {
+            /*
+            if (STATE.R.Bary) {
+                let D = Barycenter([])
+                STATE.CAMERA.LOOKAT.x = D.x
+                STATE.CAMERA.LOOKAT.y = D.y
+                STATE.CAMERA.LOOKAT.z = D.z
+            }
+                */
+            const lookAt = STATE.CAMERA.LOOKAT;
+            const pos = Graph.cameraPosition();
+            const dx = pos.x - lookAt.x;
+            const dz = pos.z - lookAt.z;
+            const rayon = Math.sqrt(dx * dx + dz * dz);
+            const angle = Math.atan2(dz, dx);
+            const deltaAngle = (2 * Math.PI) / STATE.R.speed;
+
+            Graph.cameraPosition(
+                {
+                    x: lookAt.x + rayon * Math.cos(angle + deltaAngle),
+                    y: pos.y,
+                    z: lookAt.z + rayon * Math.sin(angle + deltaAngle)
+                },
+                lookAt,
+                0
+            );
+        }
+
+        function SetRotationActive(active) {
+            STATE.R.active = active;
+
+            rotationControl.style.border =
+                active ? "2px solid white" : "transparent";
+
+            if (active) {
+                StartRotation();
+            } else {
+                StopRotation();
+                STATE.R.speed = 2000;
+            }
+        }
+
+        function ToggleRotation() {
+            SetRotationActive(!STATE.R.active);
+        }
+
+        function StartRotation() {
+            if (STATE.R.timer !== null) {
+                return;
+            }
+
+            STATE.R.timer = setInterval(() => {
+                if (!STATE.R.active) {
+                    StopRotation();
+                    return;
+                }
+
+                RotateCameraStep();
+            }, STATE.R.interval);
+        }
+
+        function StopRotation() {
+            if (STATE.R.timer === null) {
+                return;
+            }
+
+            clearInterval(STATE.R.timer);
+            STATE.R.timer = null;
+        }
+
+        function SetNodeDragActive(active) {
+            STATE.NODE_DRAG = active;
+            Graph.enableNodeDrag(active);
+            dragNodeToggle.style.border = active ? "2px solid white" : "transparent";
+            Graph.refresh();
+        }
+
+        function ToggleNodeDrag() {
+            SetNodeDragActive(!STATE.NODE_DRAG);
+        }
+
+
+        //#endregion USER INTERFACE - CONTROLS
+
+        //#region CONFIGURATION / DATA
+
+        // ---- bloc script original #27 ----
+        function PLOT_Vastur_Geometry_Unaware(L = []) {
+            let freezeAfterSimulation = true;
+            Graph.onEngineStop(() => {
+                if (!freezeAfterSimulation) { return };
+                freezeAfterSimulation = false;
+                FreezeGraph()
+                Graph.onEngineStop(() => { }); // disables the callb-ack
+            });
+
+            epsilon = 1, stableTicks = 5;
+            let stableCount = 0;
+            let prev = [];
+
+            let NodeVis = [];
+            for (let i = 0; i < Gjson.nodes.length; i++) {
+                NodeVis.push(i);
+            }
+            for (let i = 0; i < NodeVis.length; i++) {
+                prev.push([Gjson.nodes[NodeVis[i]].x, Gjson.nodes[NodeVis[i]].y, Gjson.nodes[NodeVis[i]].z])
+            }
+            let COUNTER = 0;
+
+            function loop() {
+                if (working) {
+                    working.style.display = "block";
+
+                    working.innerHTML =
+                        "Computing the 3D Graph Geometry<br>"
+                        + "<b>Unawaring the description scales</b>"
+                        + "<br>ITERATION: " + COUNTER;
+                }
+
+                let maxDisp = 0;
+                let px = 0, py = 0, pz = 0;
+                for (let i = 0; i < NodeVis.length; i++) {
+                    n = Gjson.nodes[NodeVis[i]]
+                    px = prev[i][0]; py = prev[i][1]; pz = prev[i][2];
+
+                    const dx = n.x - px;
+                    const dy = n.y - py;
+                    const dz = n.z - pz;
+                    const disp = Math.sqrt(dx * dx + dy * dy + dz * dz);
+
+                    if (disp > maxDisp) maxDisp = disp;
+
+                    prev[i] = [n.x, n.y, n.z]
+                }
+
+                if (maxDisp < epsilon) {
+                    stableCount++
+                }
+                else {
+                    stableCount = 0
+                    COUNTER = COUNTER + 1
+                };
+
+                if (stableCount >= stableTicks) {
+                    Graph.graphData().nodes.forEach(n => {
+                        n.fx = n.x;
+                        n.fy = n.y;
+                        n.fz = n.z;
+                        // Geometry cluster-unaware
+                        n.g0x = n.x;
+                        n.g0y = n.y;
+                        n.g0z = n.z;
+                    });
+
+                    FreezeGraph();
+                    STATE.PLOT.stable = true;
+                    STATE.CAMERA0.POSITION = Graph.cameraPosition();
+                    STATE.CAMERA0.LOOKAT = CameraLookatBarycenter(L, animation = 1000);
+
+                    UPDATE_s_p("s");
+                    UPDATE_s_p("p");
+
+                    Graph.nodeThreeObject(node => {
+
+                        const sphere = new THREE.Mesh(
+
+                            new THREE.SphereGeometry(
+                                Math.max((node.val ** STATE.PREF.NODE.RadiusCoef), 2),
+                                STATE.PREF.NODE.SphereWidth,
+                                STATE.PREF.NODE.SphereHeight
+                            ),
+
+                            new THREE.MeshLambertMaterial({
+                                color: colorRGB_2_Threejs(myColorNode(node.id)),
+                                transparent: STATE.PREF.NODE.ColorTrans,
+                                opacity: STATE.PREF.NODE.ColorOpac
+                            })
+                        );
+
+                        if (node.labelSprite) {
+
+                            sphere.add(node.labelSprite);
+
+                            node.labelSprite.position.set(
+                                0, //sphere.geometry.parameters.radius, + 2,
+                                0,
+                                0
+                            );
+                            node.labelSprite.visible = node.visible && node.LabVis;
+                        }
+
+                        return sphere;
+                    });
+
+                    Graph.enableNodeDrag(false)
+
+                    Graph.backgroundColor(STATE.PREF.BACKGROUND.backgroundColor)
+                    UPDATE_Color()
+
+                    document.querySelector("#NamePedig").innerHTML = myTitle0 + " (Visible Nodes: \\\\(|V_N|\\\\)=" + STATE.PLOT.nbVisibleNodes + ")";
+                    renderMathInElement(document.querySelector("#NamePedig"));
+                    document.getElementById('loading').style.display = 'none';
+                    return;
+                }
+                requestAnimationFrame(loop);
+            }
+            loop();
+        };
+
+
+        //#endregion CONFIGURATION / DATA
+
+        //#region PLOT
+
+        // ---- bloc script original #28 ----
+        function PLOT_Vastur() {
+            freezeAfterSimulation = true;
+            if (STATE.PLOT.aware) {
+                UnFreezeGraph()
+                // Force of attraction cluster-aware
+                const linkForce = Graph.d3Force('link');
+                linkForce.strength(link => {
+                    const ns = link.source;
+                    const nt = link.target;
+                    const group1 = ns.group[STATE.s][0];
+                    const group2 = nt.group[STATE.s][0];
+                    if (group1 === group2) {
+                        return link.value * 1.0; // same cluster => strong attraction
+                    }
+                    return link.value * (0.75 ** STATE.PLOT.coef_weak_strength) // weak attraction otherwise
+                    /*
+                    // just a joke (A topsy-turvy world) ;-)
+                    if (group1 === group2) {
+                        return link.value * (0.5 ** STATE.PLOT.coef_weak_strength) // weak attraction otherwise
+                    }
+                    return link.value * 1.0 // weak attraction otherwise
+                    */
+                });
+            }
+            else {
+                Graph.graphData().nodes.forEach(n => {
+                    n.x = n.g0x;
+                    n.y = n.g0y;
+                    n.z = n.g0z;
+
+                    n.fx = n.g0x;
+                    n.fy = n.g0y;
+                    n.fz = n.g0z;
+                });
+
+            }
+            Reheat()
+        };
+
+
+        //#endregion PLOT
+
+        //#region ETAT GLOBAL STATE
+
+        // ---- bloc script original #29 ----
+        function RefreshGraph() {
+            Gjson.nodes.forEach(node => {
+                if (node.BigLab) { node.labelSprite.textHeight = 2 * STATE.PREF.LABEL.sizeFixed; }
+                else { node.labelSprite.textHeight = STATE.PREF.LABEL.sizeFixed; }
+            });
+            Graph.refresh()
+        }
+
+        // ---- bloc script original #30 ----
+        function UPDATE_Visibility() {
+
+            const nodes = Graph.graphData().nodes;
+
+            let NBVIZNODE = 0;
+
+            for (let node of nodes) {
+
+                NBVIZNODE += node.visible ? 1 : 0;
+
+                if (node.labelSprite) {
+
+                    node.labelSprite.textHeight =
+                        node.BigLab
+                            ? 2 * STATE.PREF.LABEL.sizeFixed
+                            : STATE.PREF.LABEL.sizeFixed;
+                }
+
+                if (!node.__sphere) continue;
+
+                node.__sphere.visible = node.visible;
+
+                if (node.labelSprite) {
+                    node.labelSprite.visible =
+                        node.visible && node.LabVis;
+                }
+            }
+
+            STATE.PLOT.nbVisibleNodes = NBVIZNODE;
+
+            document.querySelector("#NamePedig").innerHTML =
+                myTitle +
+                " (Visible Nodes: \\\\(|V_N|\\\\)=" +
+                NBVIZNODE +
+                ")";
+
+            renderMathInElement(document.querySelector("#NamePedig"));
+
+            // LINKS
+            const visibleMap = {};
+
+            nodes.forEach(node => {
+                visibleMap[node.id] = node.visible;
+            });
+
+            Graph.graphData().links.forEach(link => {
+
+                const sid = typeof link.source === "object"
+                    ? link.source.id
+                    : link.source;
+
+                const tid = typeof link.target === "object"
+                    ? link.target.id
+                    : link.target;
+
+                link.visible =
+                    visibleMap[sid] && visibleMap[tid];
+            });
+
+            Graph.refresh();
+        }
+
+
+        //#endregion ETAT GLOBAL STATE
+
+        //#region CONFIGURATION / DATA
+
+        // ---- bloc script original #31 ----
+        function UPDATE_s_p(BY) {
+            // updating scores
+            scoreDisplayP.textContent = scales[STATE.s]["scoreP"];
+            scoreDisplayO.textContent = scales[STATE.s]["scoreO"];
+
+            // scale
+            if (BY == "s") {
+                refreshScaleButtons();
+                AnimateScore("s");
+            }
+            else {
+                if (STATE.p) { // Cp (clustering by partition)
+                    scoreDisplayP.classList.add("active");
+                    scoreDisplayO.classList.remove("active");
+                }
+                else { // Co (overlaping clustering)
+                    scoreDisplayO.classList.add("active");
+                    scoreDisplayP.classList.remove("active");
+                }
+                AnimateScore("p");
+            }
+        };
+
+        function UPDATE_Color() {
+            // Graph
+            Graph.graphData().nodes.forEach(node => {
+                if (node.__sphere) {
+                    node.__sphere.material.color.set(colorRGB_2_Threejs(myColorNode(node.id)));
+                    node.__sphere.material.transparent = STATE.PREF.NODE.ColorTrans;
+                    node.__sphere.material.opacity = STATE.PREF.NODE.ColorOpac;
+                }
+            });
+
+            setTimeout(() => {
+                Graph.linkColor(link => myColorLink(link));
+            }, 0);
+        };
+
+        // ---- bloc script original #32 ----
+        function myColorNode(id) {
+            let group = Gjson.nodes[id].group[STATE.s];
+            if (ScaleFrozenColor > -1) { // 
+                group = Gjson.nodes[id].group[ScaleFrozenColor]
+            }
+            if (STATE.p) { return myColorNodeP(group); }
+            else { return myColorNodeO(group); }
+            return true;
+        };
+
+        function myColorNodeP(group) {
+            const x = STATE.PREF.NODE.ColorCoef;
+            const color = colorRGB[group[0] % colorRGB.length]
+            return [color[0] * x, color[1] * x, color[2] * x]
+        };
+
+        function myColorNodeO(group) {
+            const x = STATE.PREF.NODE.ColorCoef;
+            const l = group.length;
+            let r = 0, g = 0, b = 0;
+            for (let i = 0; i < l; i++) {
+                let [ri, gi, bi] = colorRGB[group[i] % colorRGB.length];
+                r += ri; g += gi; b += bi;
+            }
+            r = Math.round(r / l); g = Math.round(g / l); b = Math.round(b / l);
+            return [r * x, g * x, b * x]
+        };
+
+        function myColorLink(link) {
+            let c1 = myColorNode(link.source.id);
+            let c2 = myColorNode(link.target.id);
+            const x = STATE.PREF.LINK.ColorCoef;
+            return averageColor_rgba([c1[0] * x, c1[1] * x, c1[2] * x], [c2[0] * x, c2[1] * x, c2[2] * x]);
+        };
+
+        function averageColor_rgba(c1, c2) {
+            return "rgba(" + (c1[0] + c2[0]) / 2.0 + "," + (c1[1] + c2[1]) / 2.0 + "," + (c1[2] + c2[2]) / 2.0 + ","
+                + STATE.PREF.LINK.ColorTrans + ")";
+        }
+
+        function colorRGB_2_Threejs(rgb) {
+            const [r, g, b] = rgb;
+            return (r << 16) | (g << 8) | b;
+        }
+
+
+        //#endregion CONFIGURATION / DATA
+
+        //#region EVENEMENTS - FOCUS
+
+        // ---- bloc script original #33 ----
+        function CLICK_FOCUSbtn() {
+            ensureFocusPopup();
+
+            document.querySelector(".FOCUSpopup").style.display = "block";
+
+            FOCUSbtn.style.border = "2px solid white";
+            STATE.FOC.active = true;
+        }
+
+        function CLICK_FOCUScloseBtn() {
+            const popup = document.querySelector(".FOCUSpopup");
+
+            if (popup) {
+                popup.style.display = "none";
+            }
+
+            FOCUSbtn.style.border = "transparent";
+            STATE.FOC.active = false;
+        }
+
+        function CLICK_scaleButtonS_btn(i) {
+            STATE.s = i;
+            if (STATE.PLOT.aware) {
+                PLOT_Vastur()
+            }
+            UPDATE_s_p("s")
+            UPDATE_s_p("p")
+            UPDATE_Visibility()
+        }
+
+        function CLICK_scoreDisplayP() { // CLICK soreP
+            STATE.p = true;
+            UPDATE_s_p("p");
+            UPDATE_Visibility()
+        }
+
+        function CLICK_scoreDisplayO() {
+            STATE.p = false;
+            UPDATE_s_p("p");
+            UPDATE_Visibility()
+        }
+
+        function plugButtonKey(id, actions) {
+
+            const bloc = document.getElementById(id);
+
+            // empêche le menu du navigateur
+            bloc.addEventListener("contextmenu", event => {
+                event.preventDefault();
+            });
+
+            const bind = (selector) => {
+
+                bloc.querySelector(selector)
+                    .addEventListener("mousedown", event => {
+
+                        event.preventDefault();
+                        event.stopPropagation();
+
+                        actions.toggle(bloc, event);
+                    });
+            };
+
+            bind(".titre");
+        }
+
+        function plugButtonPM(id, actions) {
+
+            const bloc = document.getElementById(id);
+
+            // Empêche le menu contextuel du navigateur
+            bloc.addEventListener("contextmenu", event => {
+                event.preventDefault();
+            });
+
+            bloc.querySelector(".titre")
+                .addEventListener("mousedown", event => actions.toggle(bloc, event));
+
+            bloc.querySelector(".plus")
+                .addEventListener("mousedown", event => actions.plus(bloc, event));
+
+            bloc.querySelector(".moins")
+                .addEventListener("mousedown", event => actions.moins(bloc, event));
+        }
+
+
+        //#endregion EVENEMENTS - FOCUS
+
+        //#region  USER INTERFACE - SCORES
+
+        // ---- bloc script original #34 ----
+        function AnimateScore(BY) {
+            scoreDisplayP.textContent = scales[STATE.s]["scoreP"]
+            scoreDisplayO.textContent = scales[STATE.s]["scoreO"]
+            if (BY == "s") { // score button
+                // We remove all animation classes before restarting
+                scoreDisplayP.classList.remove("updated", "glow");
+                scoreDisplayO.classList.remove("updated", "glow");
+
+                // gentle animation
+                scoreDisplayP.classList.add("updated", "glow");
+                scoreDisplayO.classList.add("updated", "glow");
+                setTimeout(() => {
+                    scoreDisplayP.classList.remove("updated", "glow");
+                    scoreDisplayO.classList.remove("updated", "glow");
+                }, 600);
+            }
+            else {
+                // We remove all animation classes before restarting
+                scoreDisplayP.classList.remove("updated", "burst");
+                scoreDisplayO.classList.remove("updated", "burst");
+
+                if (STATE.p) { // Cp (partition)
+                    scoreDisplayP.style.backgroundColor = "#050505";
+                    scoreDisplayO.style.backgroundColor = "#757575";
+                } else { // Co (with overlaos)
+                    scoreDisplayO.style.backgroundColor = "#050505";
+                    scoreDisplayP.style.backgroundColor = "#757575";
+                }
+
+                // More vibrant animation 
+                scoreDisplayP.classList.add("updated", "burst");
+                scoreDisplayO.classList.add("updated", "burst");
+                setTimeout(() => {
+                    scoreDisplayP.classList.remove("updated", "burst");
+                    scoreDisplayO.classList.remove("updated", "burst");
+                }, 600);
+            }
+        };
+
+        function Reheat() {
+            requestAnimationFrame(() => {
+                requestAnimationFrame(() => {
+                    requestAnimationFrame(() => {
+                        requestAnimationFrame(() => {
+                            requestAnimationFrame(() => {
+                                Graph.d3ReheatSimulation();
+                                // STATE.PLOT.stable = true;
+                            });
+                        });
+                    });
+                });
+            });
+        }
+
+        function FreezeGraph() {
+            Graph.graphData().nodes.forEach(n => {
+                n.fx = n.x;
+                n.fy = n.y;
+                n.fz = n.z;
+            });
+        }
+
+        function UnFreezeGraph() {
+            Graph.graphData().nodes.forEach(n => {
+                n.fx = undefined;
+                n.fy = undefined;
+                n.fz = undefined;
+            });
+        }
+
+        function Barycenter(L = [], Visible = true) {
+            let bx = 0;
+            let by = 0;
+            let bz = 0;
+            let N = 0;
+            if (L.length === 0) {
+                const nodes = Graph.graphData().nodes;
+                nodes.forEach(n => {
+                    if (Visible ? n.visible : true) {
+                        N = N + 1;
+                        bx += n.x;
+                        by += n.y;
+                        bz += n.z;
+                    }
+                });
+            }
+            else {
+                L.forEach(n => {
+                    if (Visible ? n.visible : true) {
+                        N = N + 1;
+                        bx += n.x;
+                        by += n.y;
+                        bz += n.z;
+                    }
+                });
+            }
+            return { x: bx / N, y: by / N, z: bz / N };
+        }
+
+        function CameraLookatBarycenter(L = [], animation = 1000) {
+            let X = Barycenter(L)
+            Graph.cameraPosition(
+                Graph.cameraPosition(), // position finale de la caméra.
+                X, // point que la caméra doit regarder (lookAt)
+                animation  // durée de l'animation en millisecondes
+            );
+            return X;
+        }
+
+
+        //#endregion  USER INTERFACE - SCORES
+
+        //#region ETAT GLOBAL STATE
+
+        // ---- bloc script original #35 ----
+        function choose_your_preferences(DIC) {
+            const overlay = document.getElementById("prefOverlay");
+            const content = document.getElementById("prefContent");
+            content.innerHTML = "";
+            buildForm(content, DIC, "");
+            overlay.style.display = "flex";
+        }
+
+        function buildForm(parent, obj, path) {
+            Object.keys(obj).forEach(key => {
+                const value = obj[key];
+                if (
+                    typeof value === "object" &&
+                    value !== null &&
+                    !Array.isArray(value)
+                ) {
+                    const section = document.createElement("div");
+                    section.className = "prefSection";
+                    const title = document.createElement("div");
+                    title.className = "prefSectionTitle";
+                    title.textContent = key;
+                    section.appendChild(title);
+                    parent.appendChild(section);
+                    buildForm(
+                        section,
+                        value,
+                        path ? path + "." + key : key
+                    );
+
+                }
+                else {
+                    const row = document.createElement("div");
+                    row.className = "prefRow";
+                    const label = document.createElement("div");
+                    label.className = "prefLabel";
+                    label.textContent = key;
+                    let input;
+                    if (typeof value === "boolean") {
+                        input = document.createElement("input");
+                        input.type = "checkbox";
+                        input.checked = value;
+                    }
+                    else if (typeof value === "number") {
+                        input = document.createElement("input");
+                        input.type = "number";
+                        input.step = "any";
+                        input.value = value;
+                    }
+                    else {
+                        input = document.createElement("input");
+                        input.type = "text";
+                        input.value = value;
+                    }
+                    input.dataset.path = path ? path + "." + key : key;
+                    row.appendChild(label);
+                    row.appendChild(input);
+                    parent.appendChild(row);
+                }
+            });
+        }
+
+        function savePreferences(DIC) {
+            document
+                .querySelectorAll("#prefContent input")
+                .forEach(input => {
+                    const path = input.dataset.path.split(".");
+                    let target = DIC;
+                    for (let i = 0; i < path.length - 1; i++) {
+                        target = target[path[i]];
+                    }
+                    const lastKey = path[path.length - 1];
+                    if (input.type === "checkbox") {
+                        target[lastKey] = input.checked;
+                    }
+                    else {
+                        const oldValue = target[lastKey];
+                        if (typeof oldValue === "number") {
+                            target[lastKey] = Number(input.value);
+                        }
+                        else {
+                            target[lastKey] = input.value;
+                        }
+                    }
+                });
+        }
+
+        function APPLY_PREF() {
+            Graph.backgroundColor(STATE.PREF.BACKGROUND.backgroundColor)
+            UPDATE_Visibility()
+            // todo labels ...
+        }
+
+        function resetPreferences() {
+            // restore default
+            STATE.PREF = structuredClone(DEFAULT_PREF);
+            // rebuild UI
+            choose_your_preferences(STATE.PREF);
+        }
+
+
+        //#endregion ETAT GLOBAL STATE
+
+        //#region FOCUS / DRAGGABLES
+
+        // ---- bloc script original #36 ----
+        function CLickKEY_node_L(event, node) {
+            // node, left
+            if (event.ctrlKey) {
+                if (event.shiftKey) {
+                    CLick_node_L_11(event, node)
+                }
+                else {
+                    CLick_node_L_10(event, node)
+                }
+            }
+            else {
+                if (event.shiftKey) {
+                    CLick_node_L_01(event, node)
+                }
+                else {
+                    CLick_node_L_00(event, node)
+                }
+            }
+            event.preventDefault();
+            event.stopPropagation();
+        }
+
+        function CLickKEY_node_R(event, node) {
+            // node, right
+            if (event.ctrlKey) {
+                if (event.shiftKey) {
+                    CLick_node_R_11(event, node)
+                }
+                else {
+                    CLick_node_R_10(event, node)
+                }
+            }
+            else {
+                if (event.shiftKey) {
+                    CLick_node_R_01(event, node)
+                }
+                else {
+                    CLick_node_R_00(event, node)
+                }
+            }
+            event.preventDefault();
+            event.stopPropagation();
+        }
+
+        // ------------------------------------------------   
+
+        function CLick_node_L_00(event, node) {
+            // node, left, {ctrl: false, shift: false}
+            FOCUS_cross = zoom_on_xyz(node.x, node.y, node.z, 100, 1000);
+        }
+        function CLick_node_L_01(event, node) {
+            // node, left, {ctrl: false, shift: true}
+        }
+        function CLick_node_L_10(event, node) {
+            // node, left, {ctrl: true, shift: false}
+            node.LabVis = !node.LabVis;
+            UPDATE_Visibility()
+        }
+        function CLick_node_L_11(event, node) {
+            // node, left, {ctrl: true, shift: true}
+        }
+        //
+        function CLick_node_R_00(event, node) {
+            // node, right, {ctrl: false, shift: false}
+            updateVisFromNode(event, node)
+        }
+        function CLick_node_R_01(event, node) {
+            // node, right, {ctrl: false, shift: true}
+        }
+        function CLick_node_R_10(event, node) {
+            // node, right, {ctrl: true, shift: false}
+            showMenuAttachedObj(event, node);
+        }
+        function CLick_node_R_11(event, node) {
+            // node, right, {ctrl: true, shift: true}
+        }
+
+
+        //#endregion FOCUS / DRAGGABLES
+
+        //#region CONFIGURATION / DATA
+
+        // ---- bloc script original #37 ----
+        function CLickKEY_ground_L(event) {
+            // ground, left
+            if (event.ctrlKey) {
+                if (event.shiftKey) {
+                    CLick_ground_L_11(event)
+                }
+                else {
+                    CLick_ground_L_10(event)
+                }
+            }
+            else {
+                if (event.shiftKey) {
+                    CLick_ground_L_01(event)
+                }
+                else {
+                    CLick_ground_L_00(event)
+                }
+            }
+            event.preventDefault();
+            event.stopPropagation();
+        }
+
+        function CLickKEY_ground_R(event) {
+            // ground, right
+            if (event.ctrlKey) {
+                if (event.shiftKey) {
+                    CLick_ground_R_11(event)
+                }
+                else {
+                    CLick_ground_R_10(event)
+                }
+            }
+            else {
+                if (event.shiftKey) {
+                    CLick_ground_R_01(event)
+                }
+                else {
+                    CLick_ground_R_00(event)
+                }
+            }
+            event.preventDefault();
+            event.stopPropagation();
+        }
+
+        // ------------------------------------------------
+
+        function CLick_ground_L_00(event) {
+            // ground, left, {ctrl: false, shift: false}
+            const now = performance.now();
+
+            if (now - lastCLick_ground_L_00 < 500) {
+                lastCLick_ground_L_00 = 0;
+                CLick_ground_L_00_double(event)
+                return;
+            }
+            else {
+                lastCLick_ground_L_00 = now;
+                return
+            }
+        }
+        function CLick_ground_L_00_double(event) {
+            // ground, left, {ctrl: false, shift: false}
+            if (STATE.R.active) {
+                rotationControl.style.border = "transparent";
+                SetRotationActive(false);
+            }
+            else {
+                rotationControl.style.border = "2px solid white";
+                SetRotationActive(true);
+            }
+            return;
+        }
+
+        function CLick_ground_L_01(event) {
+            // ground, left, {ctrl: false, shift: false}
+            const now = performance.now();
+
+            if (now - lastCLick_ground_L_10 < 500) {
+                lastCLick_ground_L_10 = 0;
+                CLick_ground_L_01_double(event)
+                return;
+            }
+            else {
+                STATE.CAMERA.LOOKAT = CameraLookatBarycenter(L = [], animation = 0);
+                return
+            }
+        }
+        function CLick_ground_L_01_double(event) {
+            // ground, left, {ctrl: true, shift: false}
+        }
+
+        function CLick_ground_L_10(event) {
+            // ground, left, {ctrl: false, shift: false}
+            const now = performance.now();
+
+            for (let i = 0; i < Gjson.nodes.length; i++) {
+                if (Gjson.nodes[i].visible) {
+                    Gjson.nodes[i].LabVis = false;
+                }
+            }
+            UPDATE_Visibility()
+        }
+        function CLick_ground_L_10_double(event) {
+            // ground, left, {ctrl: true, shift: false}
+
+        }
+
+        function CLick_ground_L_11(event) {
+            // ground, left, {ctrl: true, shift: true}
+            console.log(Propaganda)
+        }
+
+        function CLick_ground_R_00(event) {
+            // ground, right, {ctrl: false, shift: false}
+            onBackgroundRightClick(event);
+        }
+
+        function CLick_ground_R_01(event) {
+            console.log(Propaganda)
+            // ground, right, {ctrl: false, shift: true}
+        }
+
+        function CLick_ground_R_10(event) {
+            // ground, right, {ctrl: true, shift: false}
+            for (let i = 0; i < Gjson.nodes.length; i++) {
+                if (Gjson.nodes[i].visible) {
+                    Gjson.nodes[i].LabVis = true;
+                }
+            }
+            UPDATE_Visibility()
+        }
+
+        function CLick_ground_R_11(event) {
+            console.log(Propaganda)
+            // background, right, {ctrl: true, shift: true}
+        }
+
+
+        //#endregion CONFIGURATION / DATA
+
+        //#region REFERENCES DOM
+
+        // ---- bloc script original #38 ----
+        function getNodVis(id) {
+            return Gjson.nodes[id].visible;
+        }
+
+        function setNodVis(id, x) {
+            if (!(Gjson.nodes[id].visible == x)) {
+                Gjson.nodes[id].visible = x;
+                if (x) {
+                    STATE.PLOT.nbVisibleNodes = STATE.PLOT.nbVisibleNodes + 1
+                }
+                else {
+                    STATE.PLOT.nbVisibleNodes = STATE.PLOT.nbVisibleNodes - 1
+                }
+                UPDATE_Visibility();
+                document.querySelector("#NamePedig").innerHTML = myTitle + " (Visible Nodes: \\\\(|V_N|\\\\)=" + STATE.PLOT.nbVisibleNodes + ")";
+                renderMathInElement(document.querySelector("#NamePedig"));
+            }
+        }
+
+        function getNodLabVis(id) {
+            return Gjson.nodes[id].LabVis;
+        }
+
+        function setNodLabVis(id, x) {
+            Gjson.nodes[id].LabVis = x;
+        }
+
+        function getNodLabBIG(id) {
+            return Gjson.nodes[id].BigLab;
+        }
+
+        function setNodLabBIG(id, x) {
+            Gjson.nodes[id].BigLab = x;
+        }
+
+
+        //#endregion REFERENCES DOM
+
+        //#region CONTEXT MENUS
+
+        // ---- bloc script original #39 ----
+        function makeDraggable(menu, options = {}) {
+            let dragging = false;
+            let offsetX = 0;
+            let offsetY = 0;
+
+            menu.addEventListener("mousedown", (e) => {
+
+                if (
+                    options.headerId &&
+                    e.target.id !== options.headerId
+                ) {
+                    return;
+                }
+
+                if (
+                    options.ignoreInputs &&
+                    e.target.tagName === "INPUT"
+                ) {
+                    return;
+                }
+
+                dragging = true;
+
+                offsetX = e.clientX - menu.offsetLeft;
+                offsetY = e.clientY - menu.offsetTop;
+
+                if (options.onStart) {
+                    options.onStart();
+                }
+
+                e.preventDefault();
+            });
+
+            document.addEventListener("mousemove", (e) => {
+
+                if (!dragging) return;
+
+                menu.style.left = `${e.clientX - offsetX}px`;
+                menu.style.top = `${e.clientY - offsetY}px`;
+            });
+
+            document.addEventListener("mouseup", () => {
+
+                if (!dragging) return;
+
+                dragging = false;
+
+                if (options.onEnd) {
+                    options.onEnd();
+                }
+            });
+        }
+
+
+        //#endregion CONTEXT MENUS
+
+        //#region REFERENCES DOM
+
+        // ---- bloc script original #40 ----
+        function showMenuAttachedObj(event, node) {
+            updateMenuAttachedObj(node);
+            const menu = document.getElementById("menuAttachedObj");
+            const vec = new THREE.Vector3(node.x, node.y, node.z);
+            vec.project(Graph.camera());
+            const widthHalf = Graph.renderer().domElement.clientWidth / 2;
+            const heightHalf = Graph.renderer().domElement.clientHeight / 2;
+            const screenX = (vec.x * widthHalf) + widthHalf;
+            const screenY = -(vec.y * heightHalf) + heightHalf;
+
+            menu.style.left = screenX + "px";
+            menu.style.top = (screenY - 150) + "px";
+            menu.style.display = "block";
+        }
+
+
+        //#endregion REFERENCES DOM
+
+        //#region FOCUS / DRAGGABLES
+
+        // ---- bloc script original #41 ----
+        function zoom_on_xyz(x, y, z, distance, ms) {
+            if (FOCUS_cross) {
+                scene.remove(FOCUS_cross)
+            }
+            SetRotationActive(false);
+            STATE.CAMERA.LOOKAT.x = x
+            STATE.CAMERA.LOOKAT.y = y
+            STATE.CAMERA.LOOKAT.z = z
+            rotationControl.style.border = "transparent";
+            const distRatio = 1 + distance / Math.hypot(x, y, z);
+            const newPos = x || y || z
+                ? { x: x * distRatio, y: y * distRatio, z: z * distRatio }
+                : { x: 0, y: 0, z: distance }; // special case if (0,0,0)
+            Graph.cameraPosition(
+                newPos, // new position
+                { x: x, y: y, z: z }, // lookAt ({ x, y, z })
+                ms  // ms transition duration
+            );
+            return cross_forward(x, y, z)
+        };
+
+
+        //#endregion FOCUS / DRAGGABLES
+
+        //#region AUTRES FONCTIONS
+
+        // ---- bloc script original #42 ----
+        function addCheckAt(x, y, z, size11, size12, size13, size21, size22, size23, color1, color2) {
+
+            const mat1 = new THREE.MeshBasicMaterial({
+                color: color1,
+                depthTest: false,
+                depthWrite: false,
+                transparent: true
+            });
+
+            const mat2 = new THREE.MeshBasicMaterial({
+                color: color2,
+                depthTest: false,
+                depthWrite: false,
+                transparent: true
+            });
+
+            const bar1 = new THREE.Mesh(new THREE.BoxGeometry(size11, size12, size13), mat1);
+            const bar2 = new THREE.Mesh(new THREE.BoxGeometry(size21, size22, size23), mat2);
+
+            // very high rendering order
+            bar1.renderOrder = 9999;
+            bar2.renderOrder = 9999;
+
+            const cross = new THREE.Group();
+            cross.add(bar1);
+            cross.add(bar2);
+
+            // draw AFTER everything else
+            cross.renderOrder = 9999;
+
+            // clear the depth buffer
+            cross.onBeforeRender = (renderer) => {
+                renderer.clearDepth();
+            };
+
+            cross.position.set(x, y, z);
+            return cross;
+        };
+
+        function cross_forward(x, y, z,
+            size11 = 100, size12 = 1, size13 = 1,
+            size21 = 1, size22 = 100, size23 = 1,
+            color1 = 'black', color2 = 'white') {
+
+            const cross = addCheckAt(x, y, z, size11, size12, size13, size21, size22, size23, color1, color2);
+            scene.add(cross);
+            setTimeout(() => {
+                scene.remove(cross);
+            }, 3000);
+            return cross;
+        };
+
+        // ---- bloc script original #43 ----
+        function myNeig_V_UNV(id) {
+            const x = [[], []];
+            for (let i = 0; i < Gjson.nodes[id].neighbors.length; i++) {
+                if (getNodVis(Gjson.nodes[id].neighbors[i])) {
+                    x[0].push(Gjson.nodes[id].neighbors[i]);
+                }
+                else {
+                    x[1].push(Gjson.nodes[id].neighbors[i]);
+                }
+            }
+            return x
+        };
+
+        function myCpModuleNode_V_UNV(id, x) {
+            let mod = [[], []];
+            for (let i = 0; i < Gjson.nodes.length; i++) {
+                if (Gjson.nodes[i].group[STATE.s][0] == x) {
+                    if (getNodVis(i)) {
+                        mod[0].push(i);
+                    }
+                    else {
+                        mod[1].push(i);
+                    }
+                }
+            }
+            return mod;
+        };
+
+        // ---- bloc script original #44 ----
+        function myIdLabelString(id) { return Gjson.nodes[id].id + ":" + Gjson.nodes[id].name }
+
+        function myIdLabelStringVisUnvis(id) { return Gjson.nodes[id].id + ":" + Gjson.nodes[id].name + (getNodVis(id) ? "" : " (UNvisible)") }
+
+        function myLNeigS(id) {
+            return "<b>" + myIdLabelStringATSCALE(id) + "</b>" + "<br>" + myNeighborsString(id);
+        };
+
+        function myNeighborsString(id) {
+            const neighbors = myNeig_V_UNV(id)
+            const TOTneigh = neighbors[0].length + neighbors[1].length
+            let TOTneighStr = ((TOTneigh) <= 1) ? " NEIGHBOR" : " NEIGHBORS";
+            TOTneighStr = "<br><b>" + TOTneigh + TOTneighStr + "</b><br><br>"
+
+            let VneighborsString = "["
+                + neighbors[0].map(id => "(" + Gjson.nodes[id].id + ":" + Gjson.nodes[id].name + ")").join(', ')
+                + "]";
+
+            if ((neighbors[0].length) > 0) {
+                VneighborsString = "<br>" + VneighborsString
+            }
+
+            let UNVneighborsString = "["
+                + neighbors[1].map(id => Gjson.nodes[id].id + ": " + Gjson.nodes[id].name).join(', ')
+                + "]";
+            if ((neighbors[1].length) > 0) {
+                UNVneighborsString = "<br>" + UNVneighborsString
+            }
+
+            let Vn = " Visible: "
+            let UNVn = " UNvisible: "
+
+            return TOTneighStr + "<b>" + neighbors[0].length + Vn + "</b>" + VneighborsString +
+                "<br><br>" + "<b>" + neighbors[1].length + UNVn + "</b>" + UNVneighborsString;
+        }
+
+        function MyCpModString(myid) {
+            Dmod = myCpModuleNode_V_UNV(myid, Gjson.nodes[myid].group[STATE.s][0]);
+            // str
+            L0L1 = Dmod[0].length + Dmod[1].length
+            str_mod = "<br><br>" + L0L1 + " NODES in Cp mod. " + Gjson.nodes[myid].group[STATE.s][0] + "<br>";
+
+            // VISIBLE NODES
+            if (Dmod[0].length > 0) {
+                str_mod = str_mod + "<br>" + Dmod[0].length + " Visible: <br>";
+                str_mod = str_mod + "[";
+                for (let i = 0; i < Dmod[0].length - 1; i++) {
+                    str_mod = str_mod + "(" + Gjson.nodes[Dmod[0][i]].id + ':' + Gjson.nodes[Dmod[0][i]].name + '), '
+                }
+                str_mod = str_mod + "(" + Gjson.nodes[Dmod[0][Dmod[0].length - 1]].id + ': ' + Gjson.nodes[Dmod[0][Dmod[0].length - 1]].name + ')]'
+            }
+            else {
+                str_mod = str_mod + "<br>" + Dmod[0].length + " Visible: []";
+            }
+
+            // UNVISIBLE NODES
+            if (Dmod[1].length > 0) {
+                str_mod = str_mod + "<br><br>" + Dmod[1].length + " UNvisible:<br>";
+                str_mod = str_mod + "[";
+                for (let i = 0; i < Dmod[1].length - 1; i++) {
+                    str_mod = str_mod + "(" + Gjson.nodes[Dmod[1][i]].id + ': ' + Gjson.nodes[Dmod[1][i]].name + '), '
+                }
+                str_mod = str_mod + "(" + Gjson.nodes[Dmod[1][Dmod[1].length - 1]].id + ': ' + Gjson.nodes[Dmod[1][Dmod[1].length - 1]].name + ')]'
+            }
+            else {
+                str_mod = str_mod + "<br><br>" + Dmod[1].length + " UNvisible: []<br>";
+            }
+
+            // NODE ID + NODE LABEL
+            str1 = myIdLabelStringATSCALE(myid)
+
+            str1 = str1 + str_mod
+            return str1;
+        }
+
+        function myIdLabelStringATSCALE(myid) {
+            str = "<b>" + myIdLabelStringVisUnvis(myid) + "</b>" + "<br>"
+                + "[Cp: " + Gjson.nodes[myid].group[STATE.s][0] + "]"
+                + " [Co: " + Gjson.nodes[myid].group[STATE.s].join(", ")
+                + "]"
+                + " at scale " + scales[STATE.s]["s"]
+            return str
+        }
+
+
+        //#endregion AUTRES FONCTIONS
+
+        //#region REFERENCES DOM
+
+        // ---- bloc script original #46 ----
+        // function LDCON & VizFromNode
+        function onBackgroundRightClick(event) {
+
+            event.preventDefault();
+            event.stopPropagation();
+
+            const contextData = {
+                title: "\\\\textbf{UPDATE~NODES-VISIBILITY}",
+                ACTIONSonBackgroundRightClick: [
+                    { id: "degrees", title: "\\\\blacksquare\\\\textbf{~ON~DEGREES (deg within an INTERVAL)}" },
+                    { id: "regexLabel", title: "\\\\blacksquare\\\\textbf{~ON~LABELS (lab matching with a REGEX)}" },
+                    {
+                        id: "modules", title: "\\\\blacksquare\\\\textbf{~ON~MODDULE (Cp modules at scale "
+                            + scales[STATE.s]['s'] + ")}"
+                    }
+                ]
+            };
+
+            showmenuLDCON(event, contextData);
+        }
+
+        function updateVisFromNode(event, node) {
+            event.preventDefault();
+            event.stopPropagation();
+            clickedNodeId = node.id;
+
+            let ME_A = getNodVis(clickedNodeId) ? STATE.PLOT.nbVisibleNodes : STATE.PLOT.nbVisibleNodes + 1;
+            let ME_R = getNodVis(clickedNodeId) ? STATE.PLOT.nbVisibleNodes - 1 : STATE.PLOT.nbVisibleNodes;
+            let ME_I = 1;
+
+            let MYN = myNeig_V_UNV(clickedNodeId);
+            let MYN_A = STATE.PLOT.nbVisibleNodes + MYN[1].length;
+            let MYN_R = STATE.PLOT.nbVisibleNodes - MYN[0].length;
+            let MYN_I = MYN[0].length + MYN[1].length + 1; // unreflexif graph
+            if (getNodVis(clickedNodeId)) { MYN_R = MYN_R - 1; } else { MYN_A = MYN_A + 1; };
+
+            let MCP = myCpModuleNode_V_UNV(clickedNodeId, Gjson.nodes[clickedNodeId].group[STATE.s][0]);
+            let MCP_A = STATE.PLOT.nbVisibleNodes + MCP[1].length;
+            let MCP_R = STATE.PLOT.nbVisibleNodes - MCP[0].length;
+            let MCP_I = MCP[0].length + MCP[1].length;
+
+            const contextData = {
+                title: "\\\\textbf{UPDATE~NODES-VISIBILITY} \\\\newline" + "\\\\textbf{FROM:~~}  " + myIdLabelString(clickedNodeId),
+                actions: [
+                    {
+                        title: "\\\\blacksquare\\\\textbf{~ME}",
+                        buttons: ["\\\\textbf{ADD}", "\\\\textbf{REM}", "\\\\textbf{ONL}"],
+                        descriptions: ["|V_N|\\\\rightarrow" + ME_A, "|V_N|\\\\rightarrow" + ME_R, "|V_N|\\\\rightarrow" + ME_I]
+                    },
+                    {
+                        title: "\\\\blacksquare\\\\textbf{~MY~NEIGHBORS~\\\\&~ME}",
+                        buttons: ["\\\\textbf{ADD}", "\\\\textbf{REM}", "\\\\textbf{ONL}"],
+                        descriptions: ["|V_N|\\\\rightarrow" + MYN_A, "|V_N|\\\\rightarrow" + MYN_R, "|V_N|\\\\rightarrow" + MYN_I]
+                    },
+                    {
+                        title: "\\\\blacksquare\\\\textbf{~MY~PROXEMIE}~(TODO)",
+                        buttons: ["\\\\textbf{ADD}", "\\\\textbf{REM}", "\\\\textbf{ONL}"],
+                        descriptions: ["|V_N|\\\\rightarrow ", "|V_N|\\\\rightarrow ", "|V_N|\\\\rightarrow "]
+                    },
+                    {
+                        title: "\\\\blacksquare\\\\textbf{~MY~\\\\(C_p\\\\)~Module~at~s=}" + scales[STATE.s]["s"],
+                        buttons: ["\\\\textbf{ADD}", "\\\\textbf{REM}", "\\\\textbf{ONL}"],
+                        descriptions: ["|V_N|\\\\rightarrow" + MCP_A, "|V_N|\\\\rightarrow" + MCP_R, "|V_N|\\\\rightarrow" + MCP_I]
+                    },
+                ]
+            };
+            showmenuVizFromNode(clickedNodeId, contextData);
+        };
+
+        function showmenuLDCON(e, contextData) {
+            const menuLDCON = document.getElementById("menuLDCON");
+            updatemenuLDCON(contextData);
+            menuLDCON.style.left = (e.clientX - 280) + "px";
+            menuLDCON.style.top = e.clientY + "px";
+            menuLDCON.style.display = "block";
+        }
+
+        function hidemenuLDCON() {
+            menuLDCON.style.display = "none";
+        }
+
+        function updatemenuLDCON(context) {
+            const menuLDCON = document.getElementById("menuLDCON");
+            menuLDCON.innerHTML = ""; // reset content
+
+            // ---- GENERAL TITLE ----
+            const h2 = document.createElement("h2");
+            h2.innerHTML = katex.renderToString(context.title, { throwOnError: false });
+            menuLDCON.appendChild(h2);
+
+            const backBtn = document.createElement("button");
+
+            let nbBACK = STATE.lback.length - 1;
+            backBtn.innerHTML = katex.renderToString("\\\\leftarrow~\\\\text{BACK}", { throwOnError: false }) + " [" + nbBACK + "]";
+            backBtn.style.display = "block";
+            backBtn.style.margin = "10px 0";
+            backBtn.style.cursor = "pointer";
+            backBtn.style.padding = "6px 12px";
+            backBtn.style.background = "#757575";
+            backBtn.style.color = "white";
+            backBtn.style.border = "none";
+            backBtn.style.fontWeight = "bold";
+            backBtn.style.margin = "10px auto";
+            backBtn.onmouseenter = () => backBtn.style.background = "#4F4F4F";
+            backBtn.onmouseleave = () => backBtn.style.background = "#757575";
+
+            backBtn.addEventListener("click", event => {
+
+                if (STATE.lback.length > 1) {
+                    MakeOneBack();
+                    UPDATE_Visibility() // TODO à vérifier
+                    PLOT_Vastur();
+                    let nbBACK = STATE.lback.length - 1;
+                    backBtn.innerHTML = katex.renderToString("\\\\leftarrow~\\\\text{BACK}", { throwOnError: false }) + " [" + nbBACK + "]";
+                    menuLDCON.style.display = "none";
+                }
+            });
+            menuLDCON.appendChild(backBtn);
+
+            // === ACTIONS ===
+            context.ACTIONSonBackgroundRightClick.forEach((action) => {
+                const block = document.createElement("div");
+                block.style.margin = "12px 0";
+
+                // ===== TITLE =====
+                const title = document.createElement("div");
+                title.innerHTML = katex.renderToString(action.title, { throwOnError: false });
+                title.style.fontWeight = "bold";
+                title.style.marginBottom = "6px";
+                block.appendChild(title);
+
+                // =========================================
+                //  DEGREES BETWEEN
+                // =========================================
+                if (action.id === "degrees") {
+
+                    // --- line : min < deg < max ---
+                    const row = document.createElement("div");
+                    row.style.display = "flex";
+                    row.style.alignItems = "center";
+                    row.style.gap = "10px";
+
+                    const inpD1 = document.createElement("input");
+                    inpD1.type = "number";
+                    inpD1.id = "degMinInput";
+                    inpD1.style.width = "60px";
+                    inpD1.addEventListener("mousedown", ev => ev.stopPropagation());
+
+                    const midD = document.createElement("span");
+                    midD.innerHTML = katex.renderToString("\\\\;\\\\leqslant\\\\;deg\\\\;\\\\leqslant\\\\;", { throwOnError: false });
+
+                    const inpD2 = document.createElement("input");
+                    inpD2.type = "number";
+                    inpD2.id = "degMaxInput";
+                    inpD2.style.width = "60px";
+                    inpD2.addEventListener("mousedown", ev => ev.stopPropagation());
+
+                    row.appendChild(inpD1);
+                    row.appendChild(midD);
+                    row.appendChild(inpD2);
+                    block.appendChild(row);
+
+                    // --- Line butons ADD / REM / ONL ---
+                    const btnRow = document.createElement("div");
+                    btnRow.style.display = "flex";
+                    btnRow.style.gap = "10px";
+                    btnRow.style.marginTop = "6px";
+
+                    ["ADD", "REM", "ONL"].forEach(mode => {
+                        const b = document.createElement("button");
+                        b.style.border = "none";
+                        b.style.background = "#757575";
+                        b.style.color = "white";
+                        b.style.fontWeight = "bold";
+                        b.style.background = "#757575"; // normal
+                        b.style.cursor = "pointer";
+                        b.onmouseenter = () => { b.style.background = "#4F4F4F"; };// hover
+                        b.onmouseleave = () => { b.style.background = "#757575"; }; // back
+
+                        b.innerHTML = mode;
+                        b.onclick = () => {
+
+                            let min = document.getElementById("degMinInput").value;
+                            let max = document.getElementById("degMaxInput").value;
+                            if (min == "") { min = 0; }
+                            if (max == "") { max = Gjson.nodes.length; }
+
+                            let D = { T: "DEG", ARO: mode, ID: "", s: "", a: "" + min, b: "" + max };
+                            let Builded = BuildSelection(D)
+                            if (Builded[0] === "") {
+                                STATE.lback.push(D);
+                                Upate_ARO_selection_visible(mode, Builded[1]);
+                                PLOT_Vastur()
+                                hidemenuLDCON();
+                            }
+                            else {
+                                // console.error
+                            };
+                        };
+                        btnRow.appendChild(b);
+                    });
+
+                    block.appendChild(btnRow);
+                    menuLDCON.appendChild(block);
+                    return;
+                }
+
+                // =========================================
+                //  LABELS CONTAINING
+                // =========================================
+                if (action.id === "regexLabel") {
+
+                    const row = document.createElement("div");
+                    row.style.display = "flex";
+                    row.style.alignItems = "center";
+                    row.style.gap = "10px";
+
+                    const midL1 = document.createElement("span");
+                    midL1.innerHTML = katex.renderToString("lab.match(", { throwOnError: false });
+
+                    const inpL = document.createElement("input");
+                    inpL.type = "text";
+                    inpL.id = "regex";
+                    inpL.style.width = "220px";
+                    inpL.addEventListener("mousedown", ev => ev.stopPropagation());
+
+                    const midL2 = document.createElement("span");
+                    midL2.innerHTML = katex.renderToString(")", { throwOnError: false });
+
+                    row.appendChild(midL1);
+                    row.appendChild(inpL);
+                    row.appendChild(midL2);
+                    block.appendChild(row);
+
+                    const midLex0 = document.createElement("span");
+                    midLex0.style.marginLeft = "80px";
+                    midLex0.style.fontSize = "14px";
+                    midLex0.textContent = "Equal to 'forêt': ^forêt$";
+                    midLex0.style.display = "block";
+                    block.appendChild(midLex0);
+
+                    const midLex1 = document.createElement("span");
+                    midLex1.style.marginLeft = "80px";
+                    midLex1.style.fontSize = "14px";
+                    midLex1.textContent = "Starting with 'forest': ^forest";
+                    midLex1.style.display = "block";
+                    block.appendChild(midLex1);
+
+                    const midLex2 = document.createElement("span");
+                    midLex2.style.marginLeft = "80px";
+                    midLex2.style.fontSize = "14px";
+                    midLex2.textContent = "Containing '森林': 森林";
+                    midLex2.style.display = "block";
+                    block.appendChild(midLex2);
+
+                    const midLex3 = document.createElement("span");
+                    midLex3.style.marginLeft = "80px";
+                    midLex3.style.fontSize = "14px";
+                    midLex3.textContent = "Ending with 'जंगल': जंगल$";
+                    midLex3.style.display = "block";
+                    block.appendChild(midLex3);
+
+                    const midLex4 = document.createElement("span");
+                    midLex4.style.marginLeft = "80px";
+                    midLex4.style.fontSize = "14px";
+                    midLex4.textContent = "Not containing 'bosque': ^(?!.*bosque).*$";
+                    midLex4.style.display = "block";
+                    block.appendChild(midLex4);
+
+                    // --- Line buttons ADD / REM / ONL ---
+                    const btnRow = document.createElement("div");
+                    btnRow.style.display = "flex";
+                    btnRow.style.gap = "10px";
+                    btnRow.style.marginTop = "6px";
+
+                    ["ADD", "REM", "ONL"].forEach(mode => {
+                        const b = document.createElement("button");
+                        b.style.border = "none";
+                        b.style.background = "#757575";
+                        b.style.color = "white";
+                        b.style.fontWeight = "bold";
+                        b.style.background = "#757575"; // normal
+                        b.style.cursor = "pointer";
+                        b.onmouseenter = () => { b.style.background = "#4F4F4F"; };// hover
+                        b.onmouseleave = () => { b.style.background = "#757575"; }; // back
+
+                        b.innerHTML = mode;
+                        b.onclick = () => {
+
+                            let strREGEX = document.getElementById("regex").value;
+
+                            let D = { T: "LAB", ARO: mode, ID: "", s: "", a: strREGEX, b: "" };
+                            let Builded = BuildSelection(D)
+                            if (Builded[0] === "") {
+                                STATE.lback.push(D);
+                                Upate_ARO_selection_visible(mode, Builded[1]);
+                                PLOT_Vastur()
+                                hidemenuLDCON();
+                            }
+                            else {
+                                document.getElementById("regex").value = "'" + strREGEX + "' " + "Invalid Regex: " + Builded[0]
+                            };
+                        };
+                        btnRow.appendChild(b);
+                    });
+
+                    block.appendChild(btnRow);
+                    menuLDCON.appendChild(block);
+                    return;
+                }
+
+                if (action.id === "modules") {
+                    // --- Line butons ADD / REM / ONL ---
+                    const btnRow = document.createElement("div");
+                    btnRow.style.display = "flex";
+                    btnRow.style.gap = "10px";
+                    btnRow.style.marginTop = "6px";
+
+                    ["ADD", "REM", "ONL"].forEach(mode => {
+                        const b = document.createElement("button");
+                        b.style.border = "none";
+                        b.style.background = "#757575";
+                        b.style.color = "white";
+                        b.style.fontWeight = "bold";
+                        b.style.background = "#757575"; // normal
+                        b.style.cursor = "pointer";
+                        b.onmouseenter = () => { b.style.background = "#4F4F4F"; };// hover
+                        b.onmouseleave = () => { b.style.background = "#757575"; }; // back
+
+                        b.innerHTML = mode;
+                        b.onclick = () => {
+                            /*
+                            let min = document.getElementById("degMinInput").value;
+                            let max = document.getElementById("degMaxInput").value;
+                            if (min == "") { min = 0; }
+                            if (max == "") { max = Gjson.nodes.length; }
+                            */
+
+                            let D = { T: "CpMODofNodeVis", ARO: "", ID: "", s: STATE.s, a: "", b: "" };
+                            let Builded = BuildSelection(D)
+                            if (Builded[0] === "") {
+                                STATE.lback.push(D);
+                                Upate_ARO_selection_visible(mode, Builded[1]);
+                                PLOT_Vastur()
+                            }
+                            else {
+                                // console.error
+                            };
+                        };
+                        btnRow.appendChild(b);
+                    });
+
+                    block.appendChild(btnRow);
+                    menuLDCON.appendChild(block);
+                    return;
+                }
+
+            });
+        }
+
+        function MakeOneBack() {
+            // at begining all nodes are visibles
+            for (let id = 0; id < Gjson.nodes.length; id++) { Gjson.nodes[id].visible = true; }
+            STATE.PLOT.nbVisibleNodes = Gjson.nodes.length;
+
+            if (STATE.lback.length > 1) {
+                for (let i = 1; i < STATE.lback.length - 1; i++) {
+                    let D = STATE.lback[i]
+                    let Builded = BuildSelection(D)
+                    Upate_ARO_selection_visible(D.ARO, Builded[1]);
+                }
+                STATE.lback.pop();
+            }
+        };
+
+        function BuildSelection(D) {
+            // {T:T, ARO:ARO, ID:clickedNodeId, s:STATE.s, a:"", b:""}
+            const T = D.T; // "ME", "NEIG", "PROX", "MOD", "DEG", "LAB"
+            const ARO = D.ARO; // "ADD", "REM", "ONL"
+            const ID = D.ID; // ID is the id node
+            const s = D.s; // WHEN T="MOD" --> s is the index of scale description 
+            const a = D.a; // WHEN T="DEG" --> a is the STRmin_deg, WHEN T="LAB" --> a is the STRregex
+            const b = D.b; // WHEN T="DEG" --> a is the STRmax_deg
+
+            let selection = []
+            switch (T) {
+                case "ME": // Me
+                    selection.push(ID);
+                    return ["", selection]
+                    break;
+
+                case "NEIG": // My neighbors & Me
+                    const myN = myNeig_V_UNV(ID);
+                    selection = [].concat(myN[0], myN[1]); // My neighbors
+                    selection.push(ID); // Me
+                    return ["", selection]
+                    break;
+
+                case "PROX": // My proxemie
+                    //TODO
+                    break;
+
+                case "MOD": // My CURRENTLY selected Cp Module
+                    const myCpM = myCpModuleNode_V_UNV(ID, Gjson.nodes[ID].group[s][0]);
+                    selection = [].concat(myCpM[0], myCpM[1]);
+                    return ["", selection]
+                    break;
+
+                case "DEG": // degrees
+                    const min = parseInt(a); const max = parseInt(b);
+                    for (let i = 0; i < Gjson.nodes.length; i++) {
+                        if ((min <= Gjson.nodes[i].neighbors.length) && (Gjson.nodes[i].neighbors.length <= max)) {
+                            selection.push(i);
+                        }
+                    }
+
+                    return ["", selection]
+                    break;
+
+                case "LAB": // labels
+
+                    try {
+                        const regex = new RegExp(a, "u");
+
+                        for (let i = 0; i < Gjson.nodes.length; i++) {
+                            if (regex.test(Gjson.nodes[i].name)) {
+                                selection.push(i);
+                            }
+                        }
+                        return ["", selection]
+
+                    } catch (e) {
+                        return [e.message, selection]
+                    }
+                    break;
+
+                case "CpMODofNodeVis": // les modules
+                    selection = []
+                    for (let i = 0; i < Gjson.nodes.length; i++) {
+                        if (getNodVis(i)) {
+                            const myCpM = myCpModuleNode_V_UNV(i, Gjson.nodes[i].group[s][0]);
+                            selection = selection.concat(myCpM[0], myCpM[1]);
+                        }
+                    }
+                    selection = [...new Set(selection)]
+                    break;
+            }
+            return ["", selection]
+        }
+
+        function Upate_ARO_selection_visible(ARO, selection) {
+            switch (ARO) {
+                case "ADD": // ADD"
+                    for (let i = 0; i < selection.length; i++) {
+                        setNodVis(selection[i], true);
+                    }
+                    break;
+
+                case "REM": // "REMove"
+                    for (let i = 0; i < selection.length; i++) {
+                        setNodVis(selection[i], false);
+                    }
+                    break;
+
+                case "ONL": // "ONLy"
+                    let selectedVisible = [];
+                    for (let i = 0; i < selection.length; i++) {
+                        let x = selection[i]
+                        if (getNodVis(x)) {
+                            selectedVisible.push(x);
+                        }
+                    }
+
+                    for (let i = 0; i < Gjson.nodes.length; i++) { Gjson.nodes[i].visible = false; }
+                    STATE.PLOT.nbVisibleNodes = 0;
+
+                    for (let i = 0; i < selectedVisible.length; i++) {
+                        setNodVis(selection[i], true);
+                    }
+                    break;
+            }
+        }
+
+        function showmenuVizFromNode(clickedNodeId, contextData) {
+            updatemenuVizFromNode(contextData);
+
+            node = Gjson.nodes[clickedNodeId]
+            // Position: top right corner of the menu at the click point / node
+            const vec = new THREE.Vector3(node.x, node.y, node.z);
+            vec.project(Graph.camera());
+
+            const widthHalf = Graph.renderer().domElement.clientWidth / 2;
+            const heightHalf = Graph.renderer().domElement.clientHeight / 2;
+
+            const screenX = (vec.x * widthHalf) + widthHalf;
+            const screenY = -(vec.y * heightHalf) + heightHalf;
+
+            menuVizFromNode.style.left = (screenX) + "px";
+            menuVizFromNode.style.top = (screenY - 300) + "px";
+
+            menuVizFromNode.style.display = "block";
+        }
+
+        function updatemenuVizFromNode(context) {
+            const menu = document.getElementById("menuVizFromNode");
+            menu.innerHTML = "";  // reset contenu précédent
+
+            // ---- GENERAL TITLE ----
+            const h2 = document.createElement("h2");
+            h2.innerHTML = katex.renderToString(context.title, { throwOnError: false });
+            menu.appendChild(h2);
+
+            // ---- ACTIONS ----
+            context.actions.forEach((action, i) => {
+                const block = document.createElement("div");
+                block.className = "action-blocVizFromNodek";
+
+                // Title of the action
+                const h3 = document.createElement("h3");
+                h3.innerHTML = katex.renderToString(action.title, { throwOnError: false });
+                block.appendChild(h3);
+
+                // Buttons and descriptions aligned in row
+                const btnDescRow = document.createElement("div");
+                btnDescRow.className = "btn-desc-rowVizFromNode";
+
+                for (let j = 0; j < action.buttons.length; j++) {
+                    const container = document.createElement("div");
+                    container.className = "btn-desc-itemVizFromNode";
+
+                    const btn = document.createElement("div");
+                    btn.className = "ctx-btnVizFromNode";
+                    btn.innerHTML = katex.renderToString(action.buttons[j], { throwOnError: false });
+                    btn.onclick = () => {
+
+                        let T = "";
+                        switch (i) {
+                            case 0:
+                                T = "ME";
+                                break;
+                            case 1:
+                                T = "NEIG";
+                                break;
+                            case 2:
+                                T = "PROX";
+                                break;
+                            case 3:
+                                T = "MOD";
+                                break;
+                        }
+
+                        let ARO = "";
+                        switch (j) {
+                            case 0:
+                                ARO = "ADD";
+                                break;
+                            case 1:
+                                ARO = "REM";
+                                break;
+                            case 2:
+                                ARO = "ONL";
+                                break;
+                        }
+
+                        if (!(T == "PROX")) { // TODO
+                            let D = { T: T, ARO: ARO, ID: clickedNodeId, s: STATE.s, a: "", b: "" }
+                            let Builded = BuildSelection(D)
+                            if (Builded[0] === "") {
+                                STATE.lback.push(D);
+                                Upate_ARO_selection_visible(ARO, Builded[1]);
+                                PLOT_Vastur();
+                                menuVizFromNode.style.display = "none";
+                            }
+                            else {
+                                // console.error
+                            };
+                        }
+                    };
+
+                    const desc = document.createElement("div");
+                    desc.className = "desc-textVizFromNode";
+                    desc.innerHTML = katex.renderToString(action.descriptions[j], { throwOnError: false });
+
+                    container.appendChild(btn);
+                    container.appendChild(desc);
+
+                    btnDescRow.appendChild(container);
+                }
+
+                block.appendChild(btnDescRow);
+                menu.appendChild(block);
+            });
+        }
+        function updateMenuAttachedObj(node) {
+
+            const menu = document.getElementById("menuAttachedObj");
+
+            menu.innerHTML = `<h2 id="AO_header">HOW TO SEE THE NODE: ${myIdLabelString(node.id)}</h2>
+
+                                        <div class="obj-line">
+                                            <label><input type="checkbox" id="AO_visible"> NODE VISIBLE</label>
+                                        </div>
+
+                                        <div class="obj-line">
+                                            <label><input type="checkbox" id="AO_label"> WITH LABEL</label>
+                                        </div>
+
+                                        <div class="obj-line">
+                                            <label><input type="checkbox" id="AO_biglabel"> BIG LABEL</label>
+                                        </div>
+
+                                        <hr>
+
+                                        <button id="AO_apply">APPLY</button>
+                                    `;
+
+            // initial
+            document.getElementById("AO_visible").checked = Gjson.nodes[node.id].visible;
+            document.getElementById("AO_label").checked = Gjson.nodes[node.id].LabVis;
+            document.getElementById("AO_biglabel").checked = Gjson.nodes[node.id].BigLab;
+
+            // checked
+            document.getElementById("AO_apply").onclick = () => {
+
+                setNodVis(node.id, document.getElementById("AO_visible").checked);
+                Gjson.nodes[node.id].LabVis = document.getElementById("AO_label").checked;
+                Gjson.nodes[node.id].BigLab = document.getElementById("AO_biglabel").checked;
+
+                if (!Gjson.nodes[node.id].visible) {
+                    STATE.lback.push({ T: "ME", ARO: "REM", ID: node.id, s: STATE.s, a: "", b: "" });
+                }
+                UPDATE_Visibility()
+                document.getElementById("menuAttachedObj").style.display = "none";
+            };
+        }
+
+        //#endregion REFERENCES DOM
+    </script>
+
+    <script> // TODO: une fois validé, dispatcher ce bloc dans les régions définitives.
+        //#region USER INTERFACE - FOCUS_LOUPE
+
+        function ensureFocusPopup() {
+
+            if (document.querySelector(".FOCUSpopup")) {
+                return;
+            }
+
+            const popup = document.createElement("div");
+            popup.className = "FOCUSpopup";
+
+            popup.innerHTML = `
+        <div class="FOCUSpopup-header">
+            <span>FOCUS</span>
+            <button class="FOCUScloseBtn">✖</button>
+        </div>
+
+        <div class="FOCUSpopup-content">
+
+            <div class="FOCUSchoices">
+                <label>
+                    <input type="radio" name="FOCUSchoix" value="LABEL" checked>
+                    LABEL
+                </label>
+
+                <label>
+                    <input type="radio" name="FOCUSchoix" value="ID">
+                    ID
+                </label>
+            </div>
+
+            <input
+                type="text"
+                class="FOCUSinput"
+                placeholder="Enter the reference of a node (LABEL or ID)"
+            >
+
+            <div class="FOCUS-suggestions"></div>
+
+            <div class="FOCUSinput_COM"></div>
+
+            <button class="FOCUS_GO">GO</button>
+
+            <table class="FOCUStable">
+                <tr>
+                    <td>
+                        <button class="FOCUSbuttonFree zoom_N" data-i="0" data-j="0">
+                            My Neig.
+                        </button>
+                    </td>
+
+                    <td>
+                        <button class="FOCUSbuttonFree zoom_M" data-i="0" data-j="1">
+                            My Cp Mod.
+                        </button>
+                    </td>
+                </tr>
+            </table>
+
+            <div class="FOCUSresult"></div>
+        </div>
+    `;
+
+            document.body.appendChild(popup);
+
+            popup.querySelector(".FOCUScloseBtn")
+                .addEventListener("click", CLICK_FOCUScloseBtn);
+
+            popup.querySelector(".FOCUSinput")
+                .addEventListener("keydown", CLICK_FOCUSinputStr);
+
+            popup.querySelector(".FOCUS_GO")
+                .addEventListener("click", CLICK_FOCUS_GO);
+
+            popup.querySelectorAll(".FOCUSbuttonFree")
+                .forEach(btn => {
+                    btn.addEventListener("click", function () {
+                        CLICK_FOCUSbuttons_btn(this);
+                    });
+                });
+
+            initFocusCompletion();
+        }
+
+
+        function getFocusPopup() {
+            ensureFocusPopup();
+            return document.querySelector(".FOCUSpopup");
+        }
+
+        function getFocusInput() {
+            return getFocusPopup().querySelector(".FOCUSinput");
+        }
+
+        function getFocusInputCom() {
+            return getFocusPopup().querySelector(".FOCUSinput_COM");
+        }
+
+        function getFocusResult() {
+            return getFocusPopup().querySelector(".FOCUSresult");
+        }
+
+        function getFocusSuggestions() {
+            return getFocusPopup().querySelector(".FOCUS-suggestions");
+        }
+
+
+        function resetFocusState(active) {
+
+            STATE.FOC = {
+                active: active,
+                btn: "",
+                id: -1,
+                idPartner: [],
+                validNode: false,
+                orbit: false
+            };
+        }
+
+
+        function focusNodeLabel(id) {
+
+            if (typeof myIdLabelString === "function") {
+                return myIdLabelString(id);
+            }
+
+            const n = Gjson.nodes[id];
+            return id + ":" + n.name;
+        }
+
+
+        function FOCUSinputStrOK(str) {
+
+            const choice =
+                document.querySelector('input[name="FOCUSchoix"]:checked').value;
+
+            if (choice === "ID") {
+
+                const myid = parseInt(str);
+
+                if (
+                    isNaN(myid) ||
+                    myid < 0 ||
+                    myid > Gjson.nodes.length - 1
+                ) {
+                    return [false, -1, "ID missing"];
+                }
+
+                return [
+                    true,
+                    myid,
+                    focusNodeLabel(myid)
+                ];
+            }
+
+            const candidates = [];
+            let candidatesStr = "";
+
+            for (let i = 0; i < Gjson.nodes.length; i++) {
+
+                if (Gjson.nodes[i].name === str) {
+
+                    candidatesStr +=
+                        (candidates.length === 0 ? "" : ", ")
+                        + focusNodeLabel(i);
+
+                    candidates.push(i);
+                }
+            }
+
+            if (candidates.length === 0) {
+                return [false, -1, "LABEL missing"];
+            }
+
+            if (candidates.length > 1) {
+                return [
+                    false,
+                    -1,
+                    "several labels: " + candidatesStr
+                ];
+            }
+
+            return [
+                true,
+                candidates[0],
+                focusNodeLabel(candidates[0])
+            ];
+        }
+
+
+        function UPDATE_FOCUSresult(myid) {
+
+            const result = getFocusResult();
+
+            if (myid === -1) {
+
+                result.innerHTML = "";
+
+                getFocusPopup()
+                    .querySelectorAll(".FOCUStable button")
+                    .forEach(b => b.classList.remove("active"));
+
+                return;
+            }
+
+            switch (STATE.FOC.btn) {
+
+                case "":
+                    result.innerHTML = "";
+                    break;
+
+                case "0-0":
+                    if (typeof myLNeigS === "function") {
+                        result.innerHTML = myLNeigS(myid);
+                    }
+                    else {
+                        result.innerHTML = "myLNeigS() missing";
+                    }
+                    break;
+
+                case "0-1":
+                    if (typeof MyCpModString === "function") {
+                        result.innerHTML = MyCpModString(myid);
+                    }
+                    else {
+                        result.innerHTML = "MyCpModString() missing";
+                    }
+                    break;
+            }
+        }
+
+
+        function CLICK_FOCUSbtn() {
+
+            ensureFocusPopup();
+
+            const popup = getFocusPopup();
+            const input = getFocusInput();
+            const inputCom = getFocusInputCom();
+            const result = getFocusResult();
+
+            popup
+                .querySelectorAll(".FOCUStable button")
+                .forEach(b => b.classList.remove("active"));
+
+            resetFocusState(true);
+
+            result.textContent = "";
+            input.value = "";
+            inputCom.textContent = "";
+
+            popup.style.display = "block";
+
+            document.querySelector(".FOCUSopenBtn").style.border =
+                "2px solid white";
+
+            input.focus();
+        }
+
+
+        function CLICK_FOCUScloseBtn() {
+
+            const popup = getFocusPopup();
+            const input = getFocusInput();
+            const inputCom = getFocusInputCom();
+            const result = getFocusResult();
+
+            popup
+                .querySelectorAll(".FOCUStable button")
+                .forEach(b => b.classList.remove("active"));
+
+            resetFocusState(false);
+
+            popup.style.display = "none";
+            result.textContent = "";
+            input.value = "";
+            inputCom.textContent = "";
+
+            document.querySelector(".FOCUSopenBtn").style.border =
+                "transparent";
+        }
+
+
+        function CLICK_FOCUSinputStr(e) {
+
+            if (e.key !== "Enter") {
+                return;
+            }
+
+            const input = getFocusInput();
+            const inputCom = getFocusInputCom();
+            const suggestions = getFocusSuggestions();
+
+            const str = input.value.trim();
+
+            if (str === "") {
+
+                inputCom.textContent =
+                    "Please enter a node reference.";
+
+                UPDATE_FOCUSresult(-1);
+
+                return;
+            }
+
+            const X = FOCUSinputStrOK(str);
+
+            if (X[0]) {
+
+                STATE.FOC.validNode = true;
+                STATE.FOC.id = X[1];
+
+                inputCom.textContent = X[2];
+
+                const n = Gjson.nodes[X[1]];
+
+                if (typeof getNodVis !== "function" || getNodVis(X[1])) {
+
+                    if (typeof zoom_on_xyz === "function") {
+                        FOCUS_cross =
+                            zoom_on_xyz(
+                                n.x,
+                                n.y,
+                                n.z,
+                                100,
+                                1000
+                            );
+                    }
+                }
+
+                UPDATE_FOCUSresult(X[1]);
+            }
+            else {
+
+                STATE.FOC.btn = "";
+                STATE.FOC.validNode = false;
+                STATE.FOC.id = -1;
+
+                inputCom.textContent = X[2];
+
+                UPDATE_FOCUSresult(-1);
+            }
+
+            suggestions.style.display = "none";
+        }
+
+
+        function CLICK_FOCUSbuttons_btn(me) {
+
+            const inputCom = getFocusInputCom();
+
+            if (!STATE.FOC.validNode) {
+
+                inputCom.textContent =
+                    "invalid reference";
+
+                resetFocusState(true);
+
+                UPDATE_FOCUSresult(-1);
+
+                return;
+            }
+
+            const TABi = parseInt(me.dataset.i);
+            const TABj = parseInt(me.dataset.j);
+            const CHOIX = TABi + "-" + TABj;
+
+            getFocusPopup()
+                .querySelectorAll(".FOCUStable button")
+                .forEach(b => {
+                    if (b === me) {
+                        b.classList.add("active");
+                    }
+                    else {
+                        b.classList.remove("active");
+                    }
+                });
+
+            STATE.FOC.btn = CHOIX;
+
+            UPDATE_FOCUSresult(STATE.FOC.id);
+        }
+
+
+        function CLICK_FOCUS_GO() {
+
+            const inputCom = getFocusInputCom();
+
+            if (!STATE.FOC.validNode) {
+
+                inputCom.textContent =
+                    "invalid reference";
+
+                UPDATE_FOCUSresult(-1);
+
+                return;
+            }
+
+            const myid = STATE.FOC.id;
+            const n = Gjson.nodes[myid];
+
+            if (typeof setNodVis === "function") {
+                setNodVis(myid, true);
+            }
+            else {
+                n.visible = true;
+            }
+
+            if (typeof RefreshGraph === "function") {
+                RefreshGraph();
+            }
+            else {
+                UPDATE_Visibility();
+            }
+
+            if (typeof zoom_on_xyz === "function") {
+                FOCUS_cross =
+                    zoom_on_xyz(
+                        n.x,
+                        n.y,
+                        n.z,
+                        100,
+                        1000
+                    );
+            }
+        }
+
+        function UPDATE_FOCUSsuggestions() {
+
+            const input = getFocusInput();
+            const suggestions = getFocusSuggestions();
+
+            const choice =
+                document.querySelector('input[name="FOCUSchoix"]:checked').value;
+
+            if (choice !== "LABEL") {
+                suggestions.style.display = "none";
+                return;
+            }
+
+            const str = input.value.trim();
+
+            if (str === "") {
+                suggestions.style.display = "none";
+                return;
+            }
+
+            const matches =
+                Gjson.nodes
+                    .filter(node => node.name.includes(str))
+                    .slice(0, 20);
+
+            suggestions.innerHTML = "";
+
+            if (matches.length === 0) {
+                suggestions.style.display = "none";
+                return;
+            }
+
+            matches.forEach(node => {
+                const item = document.createElement("div");
+
+                item.className = "FOCUS-suggestion-item";
+                item.textContent = node.name;
+
+                item.addEventListener("mousedown", event => {
+                    event.preventDefault();
+                    event.stopPropagation();
+
+                    input.value = node.name;
+                    suggestions.style.display = "none";
+
+                    CLICK_FOCUSinputStr({ key: "Enter" });
+                });
+
+                suggestions.appendChild(item);
+            });
+
+            suggestions.style.display = "block";
+        }
+
+
+        function initFocusCompletion() {
+
+            const input = getFocusInput();
+
+            input.addEventListener("input", UPDATE_FOCUSsuggestions);
+
+            document
+                .querySelectorAll('input[name="FOCUSchoix"]')
+                .forEach(radio => {
+                    radio.addEventListener("change", () => {
+                        getFocusSuggestions().style.display = "none";
+                    });
+                });
+        }
+        //#region USER INTERFACE - FOCUS_LOUPE
+    </script>
+
+</body>
+
+</html>
+  """+nl
+  saveChemCH(OutfileHTML, CH)
+
+# =============================================================================
+def saveChemCH(chem, CH):
+    """
+        saveChemCH(chem, CH)
+        Save the string CH at chem
+    """
+    f=codecs.open(chem, "w",  encoding='utf8')
+    f.write(CH)
+    f.close()
+    
+# =============================================================================
+        
+
+
